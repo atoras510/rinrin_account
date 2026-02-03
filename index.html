@@ -7,138 +7,146 @@
     <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0d0d0d; color: #e0e0e0; min-height: 100vh; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0a0a0a; color: #e0e0e0; min-height: 100vh; }
         
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px 30px; }
+
         /* Header */
-        .header { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; background: #131313; border-bottom: 1px solid #222; }
+        .header { display: flex; align-items: center; justify-content: space-between; padding: 15px 0; margin-bottom: 20px; border-bottom: 1px solid #1a1a1a; }
         .pair-info { display: flex; align-items: center; gap: 15px; }
-        .pair-name { font-size: 1.1rem; font-weight: 600; color: #fff; }
-        .pair-name span { color: #888; font-weight: 400; }
+        .pair-name { font-size: 1.2rem; font-weight: 600; color: #fff; }
+        .pair-name span { color: #666; font-weight: 400; font-size: 0.9rem; }
         .price-info { display: flex; align-items: center; gap: 20px; }
-        .current-price { font-size: 1.4rem; font-weight: 700; color: #00c853; }
-        .price-change { font-size: 0.85rem; padding: 3px 8px; border-radius: 4px; }
+        .current-price { font-size: 1.5rem; font-weight: 700; color: #00c853; }
+        .price-change { font-size: 0.85rem; padding: 4px 10px; border-radius: 4px; font-weight: 500; }
         .price-up { background: rgba(0,200,83,0.15); color: #00c853; }
         .price-down { background: rgba(255,82,82,0.15); color: #ff5252; }
-        .status { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: #888; }
+        .status { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: #666; }
         .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #ff5252; }
         .status-dot.connected { background: #00c853; }
 
         /* Chart Section */
-        .chart-section { background: #0d0d0d; border-bottom: 1px solid #222; }
-        .chart-toolbar { display: flex; align-items: center; gap: 5px; padding: 8px 15px; background: #131313; }
-        .tf-btn { background: transparent; border: none; color: #888; padding: 6px 12px; font-size: 0.8rem; cursor: pointer; border-radius: 4px; }
+        .chart-section { background: #111; border-radius: 12px; margin-bottom: 20px; overflow: hidden; }
+        .chart-toolbar { display: flex; align-items: center; gap: 6px; padding: 12px 20px; background: #151515; border-bottom: 1px solid #1a1a1a; }
+        .tf-btn { background: transparent; border: none; color: #666; padding: 8px 14px; font-size: 0.82rem; cursor: pointer; border-radius: 6px; font-weight: 500; }
         .tf-btn:hover { background: #222; color: #fff; }
-        .tf-btn.active { background: #1a1a1a; color: #fff; }
-        .chart-info { margin-left: auto; font-size: 0.75rem; color: #555; }
-        #chart { width: 100%; height: 400px; }
+        .tf-btn.active { background: #1f1f1f; color: #fff; }
+        .chart-info { margin-left: auto; font-size: 0.75rem; color: #444; }
+        #chart { width: 100%; height: 380px; }
+
+        /* Stats Row */
+        .stats-row { display: flex; gap: 30px; padding: 12px 0; margin-bottom: 20px; font-size: 0.8rem; color: #555; }
+        .stats-row span { color: #888; font-weight: 500; }
 
         /* Trades Section */
-        .trades-section { background: #0d0d0d; }
-        .trades-tabs { display: flex; align-items: center; padding: 0 15px; background: #131313; border-bottom: 1px solid #222; }
-        .tab { padding: 12px 20px; font-size: 0.85rem; color: #888; cursor: pointer; border-bottom: 2px solid transparent; }
+        .trades-section { background: #111; border-radius: 12px; overflow: hidden; }
+        .trades-tabs { display: flex; align-items: center; padding: 0 20px; background: #151515; border-bottom: 1px solid #1a1a1a; }
+        .tab { padding: 14px 20px; font-size: 0.9rem; color: #666; cursor: pointer; border-bottom: 2px solid transparent; font-weight: 500; }
         .tab.active { color: #fff; border-bottom-color: #00c853; }
-        .tab:hover { color: #fff; }
-        .trades-actions { margin-left: auto; display: flex; gap: 8px; padding: 8px 0; }
-        .btn { padding: 6px 12px; border: none; border-radius: 4px; font-size: 0.75rem; cursor: pointer; }
+        .tab:hover { color: #aaa; }
+        .trades-actions { margin-left: auto; display: flex; gap: 10px; padding: 10px 0; }
+        .btn { padding: 8px 14px; border: none; border-radius: 6px; font-size: 0.78rem; cursor: pointer; font-weight: 500; }
         .btn-secondary { background: #222; color: #888; }
-        .btn-secondary:hover { background: #333; color: #fff; }
+        .btn-secondary:hover { background: #2a2a2a; color: #fff; }
         .btn-danger { background: #ff5252; color: #fff; }
+        .btn-danger:hover { background: #ff6b6b; }
 
         /* Table */
         .trades-table { width: 100%; }
-        .table-header { display: grid; grid-template-columns: 140px 70px 100px 80px 100px 150px 150px 50px; padding: 12px 15px; background: #0a0a0a; border-bottom: 1px solid #1a1a1a; font-size: 0.75rem; color: #555; text-transform: uppercase; letter-spacing: 0.5px; }
-        .table-header > div { display: flex; align-items: center; gap: 4px; }
-        .trades-body { height: 350px; overflow-y: auto; }
-        .trade-row { display: grid; grid-template-columns: 140px 70px 100px 80px 100px 150px 150px 50px; padding: 10px 15px; border-bottom: 1px solid #151515; font-size: 0.82rem; align-items: center; transition: background 0.15s; }
-        .trade-row:hover { background: #151515; }
+        .table-header { display: grid; grid-template-columns: 150px 70px 100px 90px 100px 160px 160px 50px; padding: 14px 20px; background: #0d0d0d; border-bottom: 1px solid #1a1a1a; font-size: 0.75rem; color: #444; text-transform: uppercase; letter-spacing: 0.5px; font-weight: 600; }
+        .trades-body { height: 400px; overflow-y: auto; }
+        .trade-row { display: grid; grid-template-columns: 150px 70px 100px 90px 100px 160px 160px 50px; padding: 12px 20px; border-bottom: 1px solid #151515; font-size: 0.85rem; align-items: center; transition: background 0.15s; }
+        .trade-row:hover { background: #161616; }
         .trade-row.new { animation: highlight 0.5s; }
         @keyframes highlight { from { background: rgba(0,200,83,0.15); } to { background: transparent; } }
 
-        .date { color: #888; }
+        .date { color: #777; }
         .type-buy { color: #00c853; font-weight: 600; }
         .type-sell { color: #ff5252; font-weight: 600; }
-        .usd { color: #fff; }
-        .size { color: #aaa; }
-        .price { color: #00c853; }
+        .usd { color: #ddd; font-weight: 500; }
+        .size { color: #888; }
+        .price { color: #00c853; font-weight: 500; }
         
-        .maker { display: flex; align-items: center; gap: 6px; }
-        .maker a { color: #888; text-decoration: none; font-size: 0.78rem; }
+        .maker { display: flex; align-items: center; gap: 8px; }
+        .maker a { color: #777; text-decoration: none; font-size: 0.8rem; }
         .maker a:hover { color: #00c853; }
-        .pos { font-size: 0.7rem; padding: 2px 6px; border-radius: 3px; }
+        .pos { font-size: 0.72rem; padding: 3px 7px; border-radius: 4px; font-weight: 500; }
         .pos-long { color: #00c853; background: rgba(0,200,83,0.12); }
         .pos-short { color: #ff5252; background: rgba(255,82,82,0.12); }
         .pos-none { color: #444; }
         .pos-load { color: #333; }
 
-        .txn a { color: #555; text-decoration: none; font-size: 1rem; }
+        .txn a { color: #444; text-decoration: none; font-size: 1.1rem; }
         .txn a:hover { color: #00c853; }
 
         /* Scrollbar */
         .trades-body::-webkit-scrollbar { width: 6px; }
-        .trades-body::-webkit-scrollbar-track { background: #0d0d0d; }
-        .trades-body::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+        .trades-body::-webkit-scrollbar-track { background: #111; }
+        .trades-body::-webkit-scrollbar-thumb { background: #2a2a2a; border-radius: 3px; }
+        .trades-body::-webkit-scrollbar-thumb:hover { background: #333; }
 
-        .scroll-top { position: fixed; bottom: 20px; right: 20px; background: #00c853; color: #000; border: none; padding: 10px 15px; border-radius: 6px; cursor: pointer; display: none; z-index: 100; font-weight: 600; }
+        .scroll-top { position: fixed; bottom: 25px; right: 25px; background: #00c853; color: #000; border: none; padding: 12px 18px; border-radius: 8px; cursor: pointer; display: none; z-index: 100; font-weight: 600; font-size: 0.85rem; }
+        .scroll-top:hover { background: #00e676; }
 
-        .loading { text-align: center; padding: 40px; color: #444; }
-        .stats-row { display: flex; gap: 25px; padding: 8px 15px; background: #131313; font-size: 0.75rem; color: #666; border-bottom: 1px solid #222; }
-        .stats-row span { color: #888; }
+        .loading { text-align: center; padding: 50px; color: #444; font-size: 0.9rem; }
     </style>
 </head>
 <body>
-    <div class="header">
-        <div class="pair-info">
-            <div class="pair-name">xyz:SILVER <span>on Hyperliquid</span></div>
-            <div class="status">
-                <div class="status-dot" id="statusDot"></div>
-                <span id="statusText">Connecting...</span>
+    <div class="container">
+        <div class="header">
+            <div class="pair-info">
+                <div class="pair-name">xyz:SILVER <span>• Hyperliquid</span></div>
+                <div class="status">
+                    <div class="status-dot" id="statusDot"></div>
+                    <span id="statusText">Connecting...</span>
+                </div>
+            </div>
+            <div class="price-info">
+                <div class="current-price" id="currentPrice">$--</div>
+                <div class="price-change price-up" id="priceChange">+0.00%</div>
             </div>
         </div>
-        <div class="price-info">
-            <div class="current-price" id="currentPrice">$--</div>
-            <div class="price-change price-up" id="priceChange">+0.00%</div>
-        </div>
-    </div>
 
-    <div class="chart-section">
-        <div class="chart-toolbar">
-            <button class="tf-btn" onclick="changeInterval('1s')">1s</button>
-            <button class="tf-btn" onclick="changeInterval('5s')">5s</button>
-            <button class="tf-btn active" onclick="changeInterval('1m')">1m</button>
-            <button class="tf-btn" onclick="changeInterval('5m')">5m</button>
-            <button class="tf-btn" onclick="changeInterval('15m')">15m</button>
-            <button class="tf-btn" onclick="changeInterval('1h')">1h</button>
-            <span class="chart-info" id="chartInfo">Candles: 0</span>
-        </div>
-        <div id="chart"></div>
-    </div>
-
-    <div class="stats-row">
-        <div>Trades: <span id="totalTrades">0</span></div>
-        <div>Data: <span id="dataSize">0 KB</span></div>
-    </div>
-
-    <div class="trades-section">
-        <div class="trades-tabs">
-            <div class="tab active">Transactions</div>
-            <div class="trades-actions">
-                <button class="btn btn-secondary" onclick="exportCSV()">Export CSV</button>
-                <button class="btn btn-danger" onclick="clearAllData()">Clear</button>
+        <div class="chart-section">
+            <div class="chart-toolbar">
+                <button class="tf-btn" onclick="changeInterval('1s')">1s</button>
+                <button class="tf-btn" onclick="changeInterval('5s')">5s</button>
+                <button class="tf-btn active" onclick="changeInterval('1m')">1m</button>
+                <button class="tf-btn" onclick="changeInterval('5m')">5m</button>
+                <button class="tf-btn" onclick="changeInterval('15m')">15m</button>
+                <button class="tf-btn" onclick="changeInterval('1h')">1h</button>
+                <span class="chart-info" id="chartInfo">Candles: 0</span>
             </div>
+            <div id="chart"></div>
         </div>
-        <div class="trades-table">
-            <div class="table-header">
-                <div>DATE</div>
-                <div>TYPE</div>
-                <div>USD</div>
-                <div>SIZE</div>
-                <div>PRICE</div>
-                <div>BUYER</div>
-                <div>SELLER</div>
-                <div>TXN</div>
+
+        <div class="stats-row">
+            <div>Trades: <span id="totalTrades">0</span></div>
+            <div>Data: <span id="dataSize">0 KB</span></div>
+        </div>
+
+        <div class="trades-section">
+            <div class="trades-tabs">
+                <div class="tab active">Transactions</div>
+                <div class="trades-actions">
+                    <button class="btn btn-secondary" onclick="exportCSV()">Export CSV</button>
+                    <button class="btn btn-danger" onclick="clearAllData()">Clear</button>
+                </div>
             </div>
-            <div class="trades-body" id="tradesList">
-                <div class="loading">Waiting for trades...</div>
+            <div class="trades-table">
+                <div class="table-header">
+                    <div>DATE</div>
+                    <div>TYPE</div>
+                    <div>USD</div>
+                    <div>SIZE</div>
+                    <div>PRICE</div>
+                    <div>BUYER</div>
+                    <div>SELLER</div>
+                    <div>TXN</div>
+                </div>
+                <div class="trades-body" id="tradesList">
+                    <div class="loading">Waiting for trades...</div>
+                </div>
             </div>
         </div>
     </div>
@@ -366,11 +374,11 @@
         function initChart() {
             const c = document.getElementById('chart');
             chart = LightweightCharts.createChart(c, {
-                width: c.clientWidth, height: 400,
-                layout: { background: { type: 'solid', color: '#0d0d0d' }, textColor: '#666' },
+                width: c.clientWidth, height: 380,
+                layout: { background: { type: 'solid', color: '#111' }, textColor: '#555' },
                 grid: { vertLines: { color: '#1a1a1a' }, horzLines: { color: '#1a1a1a' } },
-                rightPriceScale: { borderColor: '#222' },
-                timeScale: { borderColor: '#222', timeVisible: true, secondsVisible: true },
+                rightPriceScale: { borderColor: '#1a1a1a' },
+                timeScale: { borderColor: '#1a1a1a', timeVisible: true, secondsVisible: true },
                 crosshair: { mode: 0, vertLine: { color: '#333', labelBackgroundColor: '#222' }, horzLine: { color: '#333', labelBackgroundColor: '#222' } }
             });
             candleSeries = chart.addCandlestickSeries({
