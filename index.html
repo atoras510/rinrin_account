@@ -3,19 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>xyz:SILVER Trades Monitor</title>
-    <script src="https://unpkg.com/lightweight-charts/dist/lightweight-charts.standalone.production.js"></script>
+    <title>xyz:SILVER Monitor</title>
+    <script src="https://unpkg.com/lightweight-charts@4.1.0/dist/lightweight-charts.standalone.production.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Courier New', monospace; background: #0a0a0f; color: #e0e0e0; min-height: 100vh; }
         .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
         header { text-align: center; padding: 20px 0; border-bottom: 1px solid #333; margin-bottom: 20px; }
-        h1 { color: #00d4aa; font-size: 1.8rem; margin-bottom: 5px; }
+        h1 { color: #00d4aa; font-size: 1.8rem; }
         .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: #111; border-radius: 8px; margin-bottom: 20px; }
         .status { display: flex; align-items: center; gap: 10px; }
-        .status-dot { width: 12px; height: 12px; border-radius: 50%; background: #ff4444; animation: pulse 2s infinite; }
+        .status-dot { width: 12px; height: 12px; border-radius: 50%; background: #ff4444; }
         .status-dot.connected { background: #00d4aa; }
-        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
         .stats { display: flex; gap: 30px; }
         .stat-value { font-size: 1.3rem; color: #00d4aa; font-weight: bold; }
         .stat-label { font-size: 0.7rem; color: #666; }
@@ -24,21 +23,17 @@
         .interval-buttons { margin-bottom: 10px; }
         .interval-buttons button { background: #222; color: #888; border: none; padding: 8px 16px; margin-right: 5px; border-radius: 4px; cursor: pointer; }
         .interval-buttons button.active { background: #00d4aa; color: #000; }
-        .interval-buttons button:hover { background: #333; }
         .trades-container { background: #111; border-radius: 12px; overflow: hidden; }
-        .trades-header { display: grid; grid-template-columns: 80px 100px 80px 90px 1fr 1fr 60px; padding: 12px 15px; background: #1a1a2e; font-weight: bold; color: #888; font-size: 0.8rem; }
+        .trades-header { display: grid; grid-template-columns: 80px 100px 80px 90px 1fr 1fr 60px; padding: 12px 15px; background: #1a1a2e; color: #888; font-size: 0.8rem; }
         .trades-list { max-height: 300px; overflow-y: auto; }
         .trade-row { display: grid; grid-template-columns: 80px 100px 80px 90px 1fr 1fr 60px; padding: 8px 15px; border-bottom: 1px solid #222; font-size: 0.8rem; }
-        .trade-row:hover { background: #1a1a2e; }
-        .trade-row.new { animation: fadeIn 0.5s ease; }
-        @keyframes fadeIn { from { background: rgba(0, 212, 170, 0.2); } to { background: transparent; } }
         .side-buy { color: #00d4aa; font-weight: bold; }
         .side-sell { color: #ff4757; font-weight: bold; }
-        .address { color: #6c7a89; font-size: 0.75rem; }
         .address a { color: #6c7a89; text-decoration: none; }
         .address a:hover { color: #00d4aa; }
         footer { text-align: center; padding: 15px; color: #444; font-size: 0.75rem; }
         footer a { color: #00d4aa; }
+        .error { color: #ff4757; padding: 20px; text-align: center; }
     </style>
 </head>
 <body>
@@ -68,6 +63,7 @@
                 <button onclick="changeInterval('1d')">1D</button>
             </div>
             <div id="chart"></div>
+            <div id="chartError" class="error" style="display:none;"></div>
         </div>
         <div class="trades-container">
             <div class="trades-header">
@@ -86,48 +82,64 @@
         let ws, tradeCount = 0, totalVolume = 0, currentInterval = '5m';
         let chart, candleSeries;
 
-        // Initialize chart
         function initChart() {
-            chart = LightweightCharts.createChart(document.getElementById('chart'), {
-                layout: { background: { color: '#111' }, textColor: '#888' },
+            const container = document.getElementById('chart');
+            chart = LightweightCharts.createChart(container, {
+                width: container.clientWidth,
+                height: 350,
+                layout: { background: { type: 'solid', color: '#111' }, textColor: '#888' },
                 grid: { vertLines: { color: '#222' }, horzLines: { color: '#222' } },
-                crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
                 rightPriceScale: { borderColor: '#333' },
-                timeScale: { borderColor: '#333', timeVisible: true }
+                timeScale: { borderColor: '#333', timeVisible: true, secondsVisible: false }
             });
             candleSeries = chart.addCandlestickSeries({
                 upColor: '#00d4aa', downColor: '#ff4757',
                 borderUpColor: '#00d4aa', borderDownColor: '#ff4757',
                 wickUpColor: '#00d4aa', wickDownColor: '#ff4757'
             });
-        }
-
-        // Fetch candle data
-        async function fetchCandles(interval) {
-            const endTime = Date.now();
-            const startTime = endTime - getIntervalMs(interval) * 200;
-            const res = await fetch('https://api.hyperliquid.xyz/info', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ type: 'candleSnapshot', req: { coin: COIN, interval, startTime, endTime } })
+            window.addEventListener('resize', () => {
+                chart.applyOptions({ width: container.clientWidth });
             });
-            const data = await res.json();
-            if (data && data.length) {
-                const candles = data.map(c => ({
-                    time: c.t / 1000,
-                    open: parseFloat(c.o),
-                    high: parseFloat(c.h),
-                    low: parseFloat(c.l),
-                    close: parseFloat(c.c)
-                }));
-                candleSeries.setData(candles);
-                chart.timeScale().fitContent();
-            }
         }
 
-        function getIntervalMs(i) {
-            const map = { '1m': 60000, '5m': 300000, '15m': 900000, '1h': 3600000, '4h': 14400000, '1d': 86400000 };
-            return map[i] || 300000;
+        async function fetchCandles(interval) {
+            try {
+                document.getElementById('chartError').style.display = 'none';
+                const endTime = Date.now();
+                const intervals = { '1m': 60000, '5m': 300000, '15m': 900000, '1h': 3600000, '4h': 14400000, '1d': 86400000 };
+                const startTime = endTime - (intervals[interval] || 300000) * 200;
+                
+                const res = await fetch('https://api.hyperliquid.xyz/info', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: 'candleSnapshot',
+                        req: { coin: COIN, interval: interval, startTime: startTime, endTime: endTime }
+                    })
+                });
+                
+                const data = await res.json();
+                console.log('Candle data:', data);
+                
+                if (Array.isArray(data) && data.length > 0) {
+                    const candles = data.map(c => ({
+                        time: Math.floor(c.t / 1000),
+                        open: parseFloat(c.o),
+                        high: parseFloat(c.h),
+                        low: parseFloat(c.l),
+                        close: parseFloat(c.c)
+                    }));
+                    candleSeries.setData(candles);
+                    chart.timeScale().fitContent();
+                } else {
+                    document.getElementById('chartError').textContent = 'No candle data available';
+                    document.getElementById('chartError').style.display = 'block';
+                }
+            } catch (err) {
+                console.error('Fetch error:', err);
+                document.getElementById('chartError').textContent = 'Error loading chart: ' + err.message;
+                document.getElementById('chartError').style.display = 'block';
+            }
         }
 
         function changeInterval(interval) {
@@ -137,15 +149,14 @@
             fetchCandles(interval);
         }
 
-        // Trades
         const formatTime = ts => new Date(ts).toLocaleTimeString('ja-JP');
         const formatPrice = p => '$' + parseFloat(p).toFixed(4);
         const formatVol = v => v >= 1e6 ? '$'+(v/1e6).toFixed(2)+'M' : v >= 1e3 ? '$'+(v/1e3).toFixed(2)+'K' : '$'+v.toFixed(2);
         const shortAddr = a => a && a.length > 12 ? a.slice(0,6)+'...'+a.slice(-4) : a || '?';
 
-        function updateStatus(c) {
-            document.getElementById('statusDot').classList.toggle('connected', c);
-            document.getElementById('statusText').textContent = c ? 'Connected' : 'Disconnected';
+        function updateStatus(connected, text) {
+            document.getElementById('statusDot').classList.toggle('connected', connected);
+            document.getElementById('statusText').textContent = text || (connected ? 'Connected' : 'Disconnected');
         }
 
         function addTrade(t) {
@@ -157,31 +168,64 @@
             document.getElementById('tradeCount').textContent = tradeCount;
             document.getElementById('volume').textContent = formatVol(totalVolume);
             const row = document.createElement('div');
-            row.className = 'trade-row new';
+            row.className = 'trade-row';
             row.innerHTML = '<div>' + formatTime(t.time) + '</div><div>' + formatPrice(t.px) + '</div><div>' + size.toFixed(2) + '</div><div>' + formatVol(value) + '</div><div class="address"><a href="https://hyperbot.network/trader/' + users[0] + '" target="_blank">' + shortAddr(users[0]) + '</a></div><div class="address"><a href="https://hyperbot.network/trader/' + users[1] + '" target="_blank">' + shortAddr(users[1]) + '</a></div><div class="' + (isBuy ? 'side-buy' : 'side-sell') + '">' + (isBuy ? 'BUY' : 'SELL') + '</div>';
             list.insertBefore(row, list.firstChild);
             while (list.children.length > MAX_TRADES) list.removeChild(list.lastChild);
         }
 
         function connect() {
-            ws = new WebSocket('wss://api.hyperliquid.xyz/ws');
-            ws.onopen = () => { 
-                updateStatus(true); 
-                ws.send(JSON.stringify({method:'subscribe',subscription:{type:'trades',coin:COIN}}));
-            };
-            ws.onmessage = e => { 
-                try { 
-                    const d = JSON.parse(e.data); 
-                    if (d.channel === 'trades') (d.data || []).forEach(addTrade); 
-                } catch(err){} 
-            };
-            ws.onclose = () => { updateStatus(false); setTimeout(connect, 3000); };
+            updateStatus(false, 'Connecting...');
+            
+            try {
+                ws = new WebSocket('wss://api.hyperliquid.xyz/ws');
+                
+                ws.onopen = () => {
+                    console.log('WebSocket connected');
+                    updateStatus(true, 'Connected');
+                    ws.send(JSON.stringify({
+                        method: 'subscribe',
+                        subscription: { type: 'trades', coin: COIN }
+                    }));
+                };
+                
+                ws.onmessage = (e) => {
+                    try {
+                        const d = JSON.parse(e.data);
+                        console.log('WS message:', d.channel);
+                        if (d.channel === 'trades' && d.data) {
+                            d.data.forEach(addTrade);
+                        } else if (d.channel === 'subscriptionResponse') {
+                            console.log('Subscribed successfully');
+                        }
+                    } catch (err) {
+                        console.error('Parse error:', err);
+                    }
+                };
+                
+                ws.onerror = (err) => {
+                    console.error('WebSocket error:', err);
+                    updateStatus(false, 'Error');
+                };
+                
+                ws.onclose = () => {
+                    console.log('WebSocket closed, reconnecting...');
+                    updateStatus(false, 'Reconnecting...');
+                    setTimeout(connect, 3000);
+                };
+            } catch (err) {
+                console.error('Connection error:', err);
+                updateStatus(false, 'Error: ' + err.message);
+                setTimeout(connect, 5000);
+            }
         }
 
-        // Init
+        // Initialize
         initChart();
         fetchCandles(currentInterval);
         connect();
+        
+        // Refresh candles every minute
         setInterval(() => fetchCandles(currentInterval), 60000);
     </script>
 </body>
