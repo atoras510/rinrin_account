@@ -21,11 +21,12 @@
         .chart-container { background: #111; border-radius: 12px; padding: 15px; margin-bottom: 20px; }
         #chart { width: 100%; height: 350px; }
         .interval-buttons { margin-bottom: 10px; }
-        .interval-buttons button { background: #222; color: #888; border: none; padding: 8px 16px; margin-right: 5px; border-radius: 4px; cursor: pointer; }
+        .interval-buttons button { background: #222; color: #888; border: none; padding: 8px 12px; margin-right: 5px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
         .interval-buttons button.active { background: #00d4aa; color: #000; }
+        .interval-buttons button:hover { background: #333; }
         .trades-container { background: #111; border-radius: 12px; overflow: hidden; }
         .trades-header { display: grid; grid-template-columns: 80px 100px 80px 90px 1fr 1fr 60px; padding: 12px 15px; background: #1a1a2e; color: #888; font-size: 0.8rem; }
-        .trades-list { max-height: 300px; overflow-y: auto; }
+        .trades-list { max-height: 250px; overflow-y: auto; }
         .trade-row { display: grid; grid-template-columns: 80px 100px 80px 90px 1fr 1fr 60px; padding: 8px 15px; border-bottom: 1px solid #222; font-size: 0.8rem; }
         .side-buy { color: #00d4aa; font-weight: bold; }
         .side-sell { color: #ff4757; font-weight: bold; }
@@ -33,7 +34,7 @@
         .address a:hover { color: #00d4aa; }
         footer { text-align: center; padding: 15px; color: #444; font-size: 0.75rem; }
         footer a { color: #00d4aa; }
-        .error { color: #ff4757; padding: 20px; text-align: center; }
+        .info { font-size: 0.7rem; color: #666; margin-left: 10px; }
     </style>
 </head>
 <body>
@@ -55,15 +56,16 @@
         </div>
         <div class="chart-container">
             <div class="interval-buttons">
-                <button onclick="changeInterval('1m')">1m</button>
-                <button onclick="changeInterval('5m')" class="active">5m</button>
+                <button onclick="changeInterval('1s')">1s</button>
+                <button onclick="changeInterval('5s')">5s</button>
+                <button onclick="changeInterval('1m')" class="active">1m</button>
+                <button onclick="changeInterval('5m')">5m</button>
                 <button onclick="changeInterval('15m')">15m</button>
                 <button onclick="changeInterval('1h')">1h</button>
-                <button onclick="changeInterval('4h')">4h</button>
                 <button onclick="changeInterval('1d')">1D</button>
+                <span class="info" id="chartInfo">API: 1m</span>
             </div>
             <div id="chart"></div>
-            <div id="chartError" class="error" style="display:none;"></div>
         </div>
         <div class="trades-container">
             <div class="trades-header">
@@ -79,8 +81,12 @@
     </div>
     <script>
         const COIN = 'xyz:SILVER', MAX_TRADES = 50;
-        let ws, tradeCount = 0, totalVolume = 0, currentInterval = '5m';
+        let ws, tradeCount = 0, totalVolume = 0, currentInterval = '1m';
         let chart, candleSeries;
+        
+        // 1秒足・5秒足用のデータ
+        let realtimeCandles = {};
+        let lastCandleTime = 0;
 
         function initChart() {
             const container = document.getElementById('chart');
@@ -90,37 +96,30 @@
                 layout: { background: { type: 'solid', color: '#111' }, textColor: '#888' },
                 grid: { vertLines: { color: '#222' }, horzLines: { color: '#222' } },
                 rightPriceScale: { borderColor: '#333' },
-                timeScale: { borderColor: '#333', timeVisible: true, secondsVisible: false }
+                timeScale: { borderColor: '#333', timeVisible: true, secondsVisible: true }
             });
             candleSeries = chart.addCandlestickSeries({
                 upColor: '#00d4aa', downColor: '#ff4757',
                 borderUpColor: '#00d4aa', borderDownColor: '#ff4757',
                 wickUpColor: '#00d4aa', wickDownColor: '#ff4757'
             });
-            window.addEventListener('resize', () => {
-                chart.applyOptions({ width: container.clientWidth });
-            });
+            window.addEventListener('resize', () => chart.applyOptions({ width: container.clientWidth }));
         }
 
+        // APIからローソク足取得（1m以上）
         async function fetchCandles(interval) {
             try {
-                document.getElementById('chartError').style.display = 'none';
                 const endTime = Date.now();
-                const intervals = { '1m': 60000, '5m': 300000, '15m': 900000, '1h': 3600000, '4h': 14400000, '1d': 86400000 };
-                const startTime = endTime - (intervals[interval] || 300000) * 200;
+                const intervals = { '1m': 60000, '5m': 300000, '15m': 900000, '1h': 3600000, '1d': 86400000 };
+                const startTime = endTime - (intervals[interval] || 60000) * 300;
                 
                 const res = await fetch('https://api.hyperliquid.xyz/info', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        type: 'candleSnapshot',
-                        req: { coin: COIN, interval: interval, startTime: startTime, endTime: endTime }
-                    })
+                    body: JSON.stringify({ type: 'candleSnapshot', req: { coin: COIN, interval, startTime, endTime } })
                 });
                 
                 const data = await res.json();
-                console.log('Candle data:', data);
-                
                 if (Array.isArray(data) && data.length > 0) {
                     const candles = data.map(c => ({
                         time: Math.floor(c.t / 1000),
@@ -131,14 +130,37 @@
                     }));
                     candleSeries.setData(candles);
                     chart.timeScale().fitContent();
-                } else {
-                    document.getElementById('chartError').textContent = 'No candle data available';
-                    document.getElementById('chartError').style.display = 'block';
                 }
             } catch (err) {
                 console.error('Fetch error:', err);
-                document.getElementById('chartError').textContent = 'Error loading chart: ' + err.message;
-                document.getElementById('chartError').style.display = 'block';
+            }
+        }
+
+        // リアルタイムでローソク足を生成（1s, 5s用）
+        function updateRealtimeCandle(trade) {
+            const intervalMs = currentInterval === '1s' ? 1000 : currentInterval === '5s' ? 5000 : 60000;
+            const price = parseFloat(trade.px);
+            const time = Math.floor(trade.time / intervalMs) * (intervalMs / 1000);
+            
+            if (!realtimeCandles[time]) {
+                realtimeCandles[time] = { time, open: price, high: price, low: price, close: price };
+            } else {
+                const candle = realtimeCandles[time];
+                candle.high = Math.max(candle.high, price);
+                candle.low = Math.min(candle.low, price);
+                candle.close = price;
+            }
+            
+            // チャート更新
+            if (currentInterval === '1s' || currentInterval === '5s') {
+                const sortedCandles = Object.values(realtimeCandles).sort((a, b) => a.time - b.time).slice(-300);
+                candleSeries.setData(sortedCandles);
+                
+                // 古いデータ削除（最新300本のみ保持）
+                const keys = Object.keys(realtimeCandles).sort();
+                while (keys.length > 300) {
+                    delete realtimeCandles[keys.shift()];
+                }
             }
         }
 
@@ -146,7 +168,16 @@
             currentInterval = interval;
             document.querySelectorAll('.interval-buttons button').forEach(b => b.classList.remove('active'));
             event.target.classList.add('active');
-            fetchCandles(interval);
+            
+            const isRealtime = interval === '1s' || interval === '5s';
+            document.getElementById('chartInfo').textContent = isRealtime ? 'Real-time from trades' : 'API: ' + interval;
+            
+            if (isRealtime) {
+                realtimeCandles = {};
+                candleSeries.setData([]);
+            } else {
+                fetchCandles(interval);
+            }
         }
 
         const formatTime = ts => new Date(ts).toLocaleTimeString('ja-JP');
@@ -162,11 +193,17 @@
         function addTrade(t) {
             const list = document.getElementById('tradesList');
             if (!tradeCount) list.innerHTML = '';
+            
             const users = t.users || ['?','?'], price = parseFloat(t.px), size = parseFloat(t.sz), value = price * size, isBuy = t.side === 'A';
             tradeCount++; totalVolume += value;
+            
             document.getElementById('currentPrice').textContent = formatPrice(t.px);
             document.getElementById('tradeCount').textContent = tradeCount;
             document.getElementById('volume').textContent = formatVol(totalVolume);
+            
+            // リアルタイムローソク足更新
+            updateRealtimeCandle(t);
+            
             const row = document.createElement('div');
             row.className = 'trade-row';
             row.innerHTML = '<div>' + formatTime(t.time) + '</div><div>' + formatPrice(t.px) + '</div><div>' + size.toFixed(2) + '</div><div>' + formatVol(value) + '</div><div class="address"><a href="https://hyperbot.network/trader/' + users[0] + '" target="_blank">' + shortAddr(users[0]) + '</a></div><div class="address"><a href="https://hyperbot.network/trader/' + users[1] + '" target="_blank">' + shortAddr(users[1]) + '</a></div><div class="' + (isBuy ? 'side-buy' : 'side-sell') + '">' + (isBuy ? 'BUY' : 'SELL') + '</div>';
@@ -176,57 +213,28 @@
 
         function connect() {
             updateStatus(false, 'Connecting...');
+            ws = new WebSocket('wss://api.hyperliquid.xyz/ws');
             
-            try {
-                ws = new WebSocket('wss://api.hyperliquid.xyz/ws');
-                
-                ws.onopen = () => {
-                    console.log('WebSocket connected');
-                    updateStatus(true, 'Connected');
-                    ws.send(JSON.stringify({
-                        method: 'subscribe',
-                        subscription: { type: 'trades', coin: COIN }
-                    }));
-                };
-                
-                ws.onmessage = (e) => {
-                    try {
-                        const d = JSON.parse(e.data);
-                        console.log('WS message:', d.channel);
-                        if (d.channel === 'trades' && d.data) {
-                            d.data.forEach(addTrade);
-                        } else if (d.channel === 'subscriptionResponse') {
-                            console.log('Subscribed successfully');
-                        }
-                    } catch (err) {
-                        console.error('Parse error:', err);
-                    }
-                };
-                
-                ws.onerror = (err) => {
-                    console.error('WebSocket error:', err);
-                    updateStatus(false, 'Error');
-                };
-                
-                ws.onclose = () => {
-                    console.log('WebSocket closed, reconnecting...');
-                    updateStatus(false, 'Reconnecting...');
-                    setTimeout(connect, 3000);
-                };
-            } catch (err) {
-                console.error('Connection error:', err);
-                updateStatus(false, 'Error: ' + err.message);
-                setTimeout(connect, 5000);
-            }
+            ws.onopen = () => {
+                updateStatus(true, 'Connected');
+                ws.send(JSON.stringify({ method: 'subscribe', subscription: { type: 'trades', coin: COIN } }));
+            };
+            
+            ws.onmessage = (e) => {
+                try {
+                    const d = JSON.parse(e.data);
+                    if (d.channel === 'trades' && d.data) d.data.forEach(addTrade);
+                } catch (err) {}
+            };
+            
+            ws.onclose = () => { updateStatus(false, 'Reconnecting...'); setTimeout(connect, 3000); };
+            ws.onerror = () => updateStatus(false, 'Error');
         }
 
-        // Initialize
         initChart();
         fetchCandles(currentInterval);
         connect();
-        
-        // Refresh candles every minute
-        setInterval(() => fetchCandles(currentInterval), 60000);
+        setInterval(() => { if (!['1s','5s'].includes(currentInterval)) fetchCandles(currentInterval); }, 60000);
     </script>
 </body>
 </html>
