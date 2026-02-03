@@ -8,7 +8,7 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Courier New', monospace; background: #0a0a0f; color: #e0e0e0; min-height: 100vh; }
-        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
+        .container { max-width: 1600px; margin: 0 auto; padding: 20px; }
         header { text-align: center; padding: 20px 0; border-bottom: 1px solid #333; margin-bottom: 20px; }
         h1 { color: #00d4aa; font-size: 1.8rem; }
         .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: #111; border-radius: 8px; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
@@ -28,30 +28,35 @@
         .trades-container { background: #111; border-radius: 12px; overflow: hidden; }
         .trades-header-bar { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background: #1a1a2e; }
         .trades-title { color: #888; font-size: 0.85rem; }
-        .trades-header { display: grid; grid-template-columns: 75px 90px 70px 80px 1fr 1fr 50px; padding: 10px 15px; background: #151525; color: #666; font-size: 0.7rem; }
+        .trades-header { display: grid; grid-template-columns: 75px 85px 65px 75px minmax(100px,1fr) 70px minmax(100px,1fr) 70px 45px; padding: 10px 15px; background: #151525; color: #666; font-size: 0.7rem; gap: 5px; }
         .trades-list { height: 400px; overflow-y: auto; }
-        .trade-row { display: grid; grid-template-columns: 75px 90px 70px 80px 1fr 1fr 50px; padding: 8px 15px; border-bottom: 1px solid #1a1a2e; font-size: 0.75rem; }
+        .trade-row { display: grid; grid-template-columns: 75px 85px 65px 75px minmax(100px,1fr) 70px minmax(100px,1fr) 70px 45px; padding: 8px 15px; border-bottom: 1px solid #1a1a2e; font-size: 0.73rem; gap: 5px; align-items: center; }
         .trade-row:hover { background: #1a1a2e; }
         .trade-row.new { animation: flash 0.5s; }
         @keyframes flash { from { background: rgba(0,212,170,0.3); } to { background: transparent; } }
         .side-buy { color: #00d4aa; font-weight: bold; }
         .side-sell { color: #ff4757; font-weight: bold; }
-        .address a { color: #6c7a89; text-decoration: none; font-size: 0.7rem; }
+        .address a { color: #6c7a89; text-decoration: none; font-size: 0.68rem; }
         .address a:hover { color: #00d4aa; }
+        .position { font-size: 0.68rem; }
+        .pos-long { color: #00d4aa; }
+        .pos-short { color: #ff4757; }
+        .pos-none { color: #444; }
+        .pos-loading { color: #555; }
         footer { text-align: center; padding: 15px; color: #444; font-size: 0.7rem; }
         footer a { color: #00d4aa; }
         .btn-action { padding: 6px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.75rem; }
         .btn-clear { background: #ff4757; color: #fff; }
         .btn-export { background: #1a5fb4; color: #fff; margin-right: 5px; }
         .loading { text-align: center; padding: 20px; color: #666; }
-        .scroll-top { position: fixed; bottom: 20px; right: 20px; background: #00d4aa; color: #000; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; display: none; }
+        .scroll-top { position: fixed; bottom: 20px; right: 20px; background: #00d4aa; color: #000; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; display: none; z-index: 100; }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>xyz:SILVER Monitor</h1>
-            <p style="color:#888;font-size:0.8rem;">Real-time Chart & Trades with Full History</p>
+            <p style="color:#888;font-size:0.8rem;">Real-time Chart & Trades with Positions</p>
         </header>
         <div class="status-bar">
             <div class="status">
@@ -78,14 +83,14 @@
         </div>
         <div class="trades-container">
             <div class="trades-header-bar">
-                <span class="trades-title">Trade History (scroll for more)</span>
+                <span class="trades-title">Trade History with Positions</span>
                 <div>
                     <button class="btn-action btn-export" onclick="exportCSV()">Export CSV</button>
                     <button class="btn-action btn-clear" onclick="clearAllData()">Clear</button>
                 </div>
             </div>
             <div class="trades-header">
-                <div>Time</div><div>Price</div><div>Size</div><div>Value</div><div>Buyer</div><div>Seller</div><div>Side</div>
+                <div>Time</div><div>Price</div><div>Size</div><div>Value</div><div>Buyer</div><div>Position</div><div>Seller</div><div>Position</div><div>Side</div>
             </div>
             <div class="trades-list" id="tradesList">
                 <div class="loading">Loading...</div>
@@ -98,18 +103,61 @@
     <button class="scroll-top" id="scrollTop" onclick="scrollToTop()">↑ Latest</button>
 
     <script>
-        const COIN = 'xyz:SILVER', DB_NAME = 'SilverMonitorDB', DB_VERSION = 1;
-        const BATCH_SIZE = 100;
+        const COIN = 'xyz:SILVER', DEX = 'xyz', DB_NAME = 'SilverMonitorDB', DB_VERSION = 2;
+        const BATCH_SIZE = 100, POSITION_CACHE_TTL = 30000; // 30秒キャッシュ
         let ws, db, chart, candleSeries;
         let currentInterval = '1m';
         let isLoadingMore = false;
         let oldestLoadedId = Infinity;
-        let newestTrades = [];
+        
+        // ポジションキャッシュ
+        const positionCache = new Map();
         
         const intervals = ['1s', '5s', '1m', '5m', '15m', '1h'];
         const intervalSeconds = { '1s': 1, '5s': 5, '1m': 60, '5m': 300, '15m': 900, '1h': 3600 };
         let candleData = {};
         intervals.forEach(i => candleData[i] = {});
+
+        // ===== Position API =====
+        async function fetchPosition(address) {
+            // キャッシュチェック
+            const cached = positionCache.get(address);
+            if (cached && Date.now() - cached.time < POSITION_CACHE_TTL) {
+                return cached.position;
+            }
+            
+            try {
+                const res = await fetch('https://api.hyperliquid.xyz/info', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type: 'clearinghouseState', user: address, dex: DEX })
+                });
+                const data = await res.json();
+                
+                let position = 0;
+                if (data && data.assetPositions) {
+                    const pos = data.assetPositions.find(p => 
+                        p.position && p.position.coin === COIN
+                    );
+                    if (pos && pos.position) {
+                        position = parseFloat(pos.position.szi) || 0;
+                    }
+                }
+                
+                positionCache.set(address, { position, time: Date.now() });
+                return position;
+            } catch (err) {
+                console.error('Position fetch error:', err);
+                return null;
+            }
+        }
+
+        function formatPosition(pos) {
+            if (pos === null) return '<span class="pos-loading">...</span>';
+            if (pos === 0) return '<span class="pos-none">0</span>';
+            if (pos > 0) return `<span class="pos-long">+${pos.toFixed(2)}</span>`;
+            return `<span class="pos-short">${pos.toFixed(2)}</span>`;
+        }
 
         // ===== IndexedDB =====
         function openDB() {
@@ -240,18 +288,40 @@
             const row = document.createElement('div');
             row.className = 'trade-row' + (isNew ? ' new' : '');
             row.dataset.id = t.id;
+            row.dataset.buyer = t.buyer;
+            row.dataset.seller = t.seller;
             const value = t.price * t.size;
             const isBuy = t.side === 'A';
+            const shortAddr = a => a && a.length > 10 ? a.slice(0,6)+'...'+a.slice(-4) : a || '?';
+            
             row.innerHTML = `
                 <div>${new Date(t.time).toLocaleTimeString('ja-JP')}</div>
                 <div>$${t.price.toFixed(3)}</div>
                 <div>${t.size.toFixed(2)}</div>
                 <div>$${value >= 1000 ? (value/1000).toFixed(2)+'K' : value.toFixed(2)}</div>
-                <div class="address"><a href="https://hyperbot.network/trader/${t.buyer}" target="_blank">${t.buyer.slice(0,6)}...${t.buyer.slice(-4)}</a></div>
-                <div class="address"><a href="https://hyperbot.network/trader/${t.seller}" target="_blank">${t.seller.slice(0,6)}...${t.seller.slice(-4)}</a></div>
+                <div class="address"><a href="https://hyperbot.network/trader/${t.buyer}" target="_blank">${shortAddr(t.buyer)}</a></div>
+                <div class="position" data-addr="${t.buyer}"><span class="pos-loading">...</span></div>
+                <div class="address"><a href="https://hyperbot.network/trader/${t.seller}" target="_blank">${shortAddr(t.seller)}</a></div>
+                <div class="position" data-addr="${t.seller}"><span class="pos-loading">...</span></div>
                 <div class="${isBuy ? 'side-buy' : 'side-sell'}">${isBuy ? 'BUY' : 'SELL'}</div>
             `;
             return row;
+        }
+
+        async function loadPositionsForRow(row) {
+            const buyer = row.dataset.buyer;
+            const seller = row.dataset.seller;
+            
+            const [buyerPos, sellerPos] = await Promise.all([
+                fetchPosition(buyer),
+                fetchPosition(seller)
+            ]);
+            
+            const buyerCell = row.querySelector(`.position[data-addr="${buyer}"]`);
+            const sellerCell = row.querySelector(`.position[data-addr="${seller}"]`);
+            
+            if (buyerCell) buyerCell.innerHTML = formatPosition(buyerPos);
+            if (sellerCell) sellerCell.innerHTML = formatPosition(sellerPos);
         }
 
         async function loadMoreTrades() {
@@ -268,10 +338,13 @@
             const loading = list.querySelector('.loading');
             if (loading) loading.remove();
             
-            trades.forEach(t => {
-                list.appendChild(createTradeRow(t));
+            for (const t of trades) {
+                const row = createTradeRow(t);
+                list.appendChild(row);
                 if (t.id < oldestLoadedId) oldestLoadedId = t.id;
-            });
+                // ポジション取得（バックグラウンド）
+                loadPositionsForRow(row);
+            }
             
             isLoadingMore = false;
         }
@@ -297,7 +370,10 @@
             const row = createTradeRow(t, true);
             list.insertBefore(row, list.firstChild);
             
-            // 表示上限（メモリ節約）
+            // ポジション取得
+            loadPositionsForRow(row);
+            
+            // 表示上限
             while (list.children.length > 500) {
                 const last = list.lastChild;
                 oldestLoadedId = Math.min(oldestLoadedId, parseInt(last.dataset.id) || Infinity);
@@ -401,10 +477,7 @@
             const scrollBtn = document.getElementById('scrollTop');
             
             list.addEventListener('scroll', () => {
-                // 下にスクロールしたら「最新へ」ボタン表示
                 scrollBtn.style.display = list.scrollTop > 200 ? 'block' : 'none';
-                
-                // 下端に近づいたら追加読み込み
                 if (list.scrollTop + list.clientHeight >= list.scrollHeight - 100) {
                     loadMoreTrades();
                 }
