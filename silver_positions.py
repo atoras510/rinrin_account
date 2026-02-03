@@ -1,10 +1,15 @@
 """
-xyz:SILVER ポジションランキング & リアルタイム約定モニター
+xyz:SILVER ポジションランキング & リアルタイム約定モニター v2
 
-- 起動時にREST APIで過去の約定を取得 → アドレス収集
-- WebSocketでリアルタイム約定を監視 → アドレス追加
-- 収集したアドレスをJSONファイルに永続保存
-- 各アドレスのポジションを取得してランキング表示
+データ収集:
+  1. リーダーボードAPIから上位トレーダーのアドレスを取得
+  2. recentTrades / userFillsByTime で約定からアドレス収集
+  3. WebSocketでリアルタイム約定を監視 → 新アドレス追加
+  4. 収集したアドレスをJSONファイルに永続保存
+
+ポジション取得:
+  - batchClearinghouseStates で一括取得（1リクエストで複数アドレス）
+  - アドレス数に応じて更新間隔を自動調整
 """
 
 import asyncio
@@ -30,30 +35,33 @@ COIN = "xyz:SILVER"
 DEX = "xyz"
 WS_URL = "wss://api.hyperliquid.xyz/ws"
 API_URL = "https://api.hyperliquid.xyz/info"
+LEADERBOARD_URL = "https://stats-data.hyperliquid.xyz/Mainnet/leaderboard"
 DATA_FILE = Path(__file__).parent / "silver_addresses.json"
+
+BATCH_SIZE = 20  # batchClearinghouseStates の1回あたりのアドレス数
 
 known_addresses = set()
 positions = {}
 trade_count = 0
+api_calls = 0  # API呼び出し数カウント
 
-# アドレス数に応じて更新間隔を自動調整（レートリミット対策）
-# 目標: 600 req/min以下に抑える（上限1200の半分）
+
 def get_position_ttl():
+    """アドレス数に応じて更新間隔を自動調整"""
     n = len(known_addresses)
     if n <= 100:
-        return 60       # 100 req/min
+        return 60
     elif n <= 300:
-        return 120      # 150 req/min
+        return 120
     elif n <= 600:
-        return 180      # 200 req/min
+        return 180
     else:
-        return max(300, n // 2)  # 安全マージン
+        return max(300, n // 2)
 
 
 # ===== データ永続化 =====
 
 def save_addresses():
-    """収集済みアドレスをJSONに保存"""
     data = {
         "updated": datetime.now().isoformat(),
         "count": len(known_addresses),
@@ -63,7 +71,6 @@ def save_addresses():
 
 
 def load_addresses():
-    """保存済みアドレスを読み込み"""
     if not DATA_FILE.exists():
         return 0
     try:
@@ -75,82 +82,143 @@ def load_addresses():
         return 0
 
 
-# ===== REST APIで過去の約定を取得 =====
+# ===== アドレス収集 =====
+
+async def fetch_leaderboard(session):
+    """リーダーボードAPIからトップトレーダーのアドレスを取得"""
+    global api_calls
+    collected = 0
+    try:
+        async with session.get(LEADERBOARD_URL, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+            api_calls += 1
+            if resp.status == 200:
+                data = await resp.json()
+                rows = data.get("leaderboardRows", [])
+                for row in rows:
+                    addr = row.get("ethAddress", "")
+                    if addr and len(addr) > 10:
+                        known_addresses.add(addr)
+                        collected += 1
+    except Exception:
+        pass
+    return collected
+
 
 async def fetch_recent_trades(session):
     """REST APIで直近の約定を取得しアドレスを収集"""
+    global api_calls
     collected = 0
+
+    # recentTrades
     try:
-        # userFills は使えないが、wsTradesのスナップショットを取得する方法として
-        # フロントエンドが使う内部APIを試す
-        # 公式: POST /info { "type": "recentTrades", "coin": "xyz:SILVER" }
-        # ※ builder-deployed perpでは "coin" にフルネーム必要
         payload = {"type": "recentTrades", "coin": COIN}
         async with session.post(API_URL, json=payload, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+            api_calls += 1
             if resp.status == 200:
                 trades = await resp.json()
                 if isinstance(trades, list):
                     for t in trades:
-                        users = t.get("users", [])
-                        for u in users:
+                        for u in t.get("users", []):
                             if u and u != "?" and len(u) > 10:
                                 known_addresses.add(u)
                                 collected += 1
-    except Exception as e:
+    except Exception:
         pass
 
     # userFillsByTime で既知アドレスの取引相手を発見
-    # (既にアドレスがあれば、その取引相手も収集)
     try:
-        for addr in list(known_addresses)[:20]:  # 最初の20件
+        for addr in list(known_addresses)[:30]:
             payload = {
                 "type": "userFillsByTime",
                 "user": addr,
-                "startTime": int((time.time() - 86400) * 1000),  # 24h前
+                "startTime": int((time.time() - 86400 * 3) * 1000),  # 3日前
                 "endTime": int(time.time() * 1000),
             }
             async with session.post(API_URL, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                api_calls += 1
                 if resp.status == 200:
                     fills = await resp.json()
                     if isinstance(fills, list):
                         for f in fills:
                             if f.get("coin") == COIN:
-                                users = f.get("users", [])
-                                for u in users:
+                                for u in f.get("users", []):
                                     if u and u != "?" and len(u) > 10:
                                         known_addresses.add(u)
                                         collected += 1
-            await asyncio.sleep(0.2)  # レートリミット配慮
+            await asyncio.sleep(0.15)
     except Exception:
         pass
 
     return collected
 
 
-# ===== ポジション取得 =====
+# ===== ポジション取得 (batch API) =====
 
-async def fetch_position(session, address):
-    try:
-        payload = {"type": "clearinghouseState", "user": address, "dex": DEX}
-        async with session.post(API_URL, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as resp:
-            data = await resp.json()
-            if data and "assetPositions" in data:
-                for p in data["assetPositions"]:
-                    if p.get("position", {}).get("coin") == COIN:
-                        return {
-                            "size": float(p["position"].get("szi", 0)),
-                            "entry_px": float(p["position"].get("entryPx", "0")),
-                            "upnl": float(p["position"].get("unrealizedPnl", "0")),
-                            "liq_px": float(p["position"].get("liquidationPx", "0") or "0"),
-                            "leverage": p["position"].get("leverage", {}),
-                        }
-            return {"size": 0, "entry_px": 0, "upnl": 0, "liq_px": 0, "leverage": {}}
-    except Exception:
-        return None
+async def batch_fetch_positions(session, addrs):
+    """batchClearinghouseStates で一括取得"""
+    global api_calls
+    results = {}
+
+    for i in range(0, len(addrs), BATCH_SIZE):
+        batch = addrs[i:i + BATCH_SIZE]
+        try:
+            payload = {
+                "type": "batchClearinghouseStates",
+                "users": batch,
+                "dex": DEX,
+            }
+            async with session.post(API_URL, json=payload, timeout=aiohttp.ClientTimeout(total=15)) as resp:
+                api_calls += 1
+                if resp.status == 200:
+                    data = await resp.json()
+                    if isinstance(data, list):
+                        for addr, state in zip(batch, data):
+                            pos_data = {"size": 0, "entry_px": 0, "upnl": 0, "liq_px": 0, "leverage": {}}
+                            if state and "assetPositions" in state:
+                                for p in state["assetPositions"]:
+                                    if p.get("position", {}).get("coin") == COIN:
+                                        pos_data = {
+                                            "size": float(p["position"].get("szi", 0)),
+                                            "entry_px": float(p["position"].get("entryPx", "0")),
+                                            "upnl": float(p["position"].get("unrealizedPnl", "0")),
+                                            "liq_px": float(p["position"].get("liquidationPx", "0") or "0"),
+                                            "leverage": p["position"].get("leverage", {}),
+                                        }
+                                        break
+                            results[addr] = pos_data
+        except Exception:
+            # バッチ失敗時は個別にフォールバック
+            for addr in batch:
+                try:
+                    payload = {"type": "clearinghouseState", "user": addr, "dex": DEX}
+                    async with session.post(API_URL, json=payload, timeout=aiohttp.ClientTimeout(total=10)) as resp:
+                        api_calls += 1
+                        if resp.status == 200:
+                            state = await resp.json()
+                            pos_data = {"size": 0, "entry_px": 0, "upnl": 0, "liq_px": 0, "leverage": {}}
+                            if state and "assetPositions" in state:
+                                for p in state["assetPositions"]:
+                                    if p.get("position", {}).get("coin") == COIN:
+                                        pos_data = {
+                                            "size": float(p["position"].get("szi", 0)),
+                                            "entry_px": float(p["position"].get("entryPx", "0")),
+                                            "upnl": float(p["position"].get("unrealizedPnl", "0")),
+                                            "liq_px": float(p["position"].get("liquidationPx", "0") or "0"),
+                                            "leverage": p["position"].get("leverage", {}),
+                                        }
+                                        break
+                            results[addr] = pos_data
+                except Exception:
+                    pass
+
+        if i + BATCH_SIZE < len(addrs):
+            await asyncio.sleep(0.3)
+
+    return results
 
 
 async def update_all_positions(session):
-    """全アドレスのポジションを一括更新（並列, 10件ずつ）"""
+    """全アドレスのポジションを更新"""
     ttl = get_position_ttl()
     addrs = [a for a in known_addresses
              if a not in positions or time.time() - positions.get(a, {}).get("updated", 0) >= ttl]
@@ -158,19 +226,10 @@ async def update_all_positions(session):
     if not addrs:
         return
 
-    # 10件ずつバッチ処理（APIレートリミット配慮）
-    for i in range(0, len(addrs), 10):
-        batch = addrs[i:i+10]
-        tasks = [fetch_position(session, a) for a in batch]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-
-        for addr, result in zip(batch, results):
-            if isinstance(result, Exception) or result is None:
-                continue
-            positions[addr] = {**result, "updated": time.time()}
-
-        if i + 10 < len(addrs):
-            await asyncio.sleep(0.5)
+    results = await batch_fetch_positions(session, addrs)
+    now = time.time()
+    for addr, data in results.items():
+        positions[addr] = {**data, "updated": now}
 
 
 # ===== 表示 =====
@@ -189,12 +248,15 @@ def render(last_trades):
     clear_screen()
 
     now = datetime.now().strftime("%H:%M:%S")
+    active = sum(1 for d in positions.values() if d["size"] != 0)
+    ttl = get_position_ttl()
+    est_rpm = len(known_addresses) * 60 // max(ttl, 1) // max(BATCH_SIZE, 1)
+
     print(f"\033[96m{'='*84}\033[0m")
-    print(f"\033[96m  xyz:SILVER Position Ranking & Trade Monitor\033[0m")
-    print(f"\033[90m  {now}  |  Addresses: {len(known_addresses)}  |  "
-          f"Positions: {sum(1 for d in positions.values() if d['size'] != 0)}  |  "
-          f"Trades: {trade_count}  |  "
-          f"Saved: {DATA_FILE.name}\033[0m")
+    print(f"\033[96m  xyz:SILVER Position Ranking & Trade Monitor  \033[90mv2 (batch API)\033[0m")
+    print(f"\033[90m  {now}  |  Addr: {len(known_addresses)}  |  "
+          f"Active: {active}  |  Trades: {trade_count}  |  "
+          f"API calls: {api_calls}  |  ~{est_rpm} req/min\033[0m")
     print(f"\033[96m{'='*84}\033[0m")
 
     # ランキング
@@ -205,26 +267,34 @@ def render(last_trades):
     shorts = [r for r in ranked if r[1]["size"] < 0]
     total_long = sum(d["size"] for _, d in longs)
     total_short = sum(abs(d["size"]) for _, d in shorts)
+    total = total_long + total_short
 
     print()
-    print(f"\033[93m  ── Position Ranking ({'─'*56})\033[0m")
-    print(f"\033[90m  LONG: \033[92m{len(longs)} ({total_long:+.2f})\033[90m  |  "
-          f"SHORT: \033[91m{len(shorts)} ({-total_short:.2f})\033[90m  |  "
-          f"Ratio: \033[0m{total_long/(total_long+total_short)*100:.0f}%L / {total_short/(total_long+total_short)*100:.0f}%S"
-          if (total_long + total_short) > 0 else "")
+    print(f"\033[93m  ── Position Ranking {'─'*58}\033[0m")
+    if total > 0:
+        bar_len = 40
+        long_bar = int(total_long / total * bar_len)
+        short_bar = bar_len - long_bar
+        bar = f"\033[92m{'█' * long_bar}\033[91m{'█' * short_bar}\033[0m"
+        print(f"  {bar}  \033[92mL:{len(longs)}({total_long:+.1f})\033[0m  "
+              f"\033[91mS:{len(shorts)}({-total_short:.1f})\033[0m  "
+              f"[{total_long/total*100:.0f}% / {total_short/total*100:.0f}%]")
     print()
-    print(f"\033[90m  {'#':>3}  {'Address':<15} {'Position':>12} {'Side':>6} "
+    print(f"\033[90m  {'#':>3}  {'Address':<15} {'Notional':>12} {'Position':>12} {'Side':>6} "
           f"{'Entry':>10} {'uPnL':>12} {'Lev':>5}\033[0m")
-    print(f"\033[90m  {'─'*75}\033[0m")
+    print(f"\033[90m  {'─'*84}\033[0m")
 
     if not ranked:
-        print(f"\033[90m  Collecting addresses... (takes ~30s after start)\033[0m")
+        print(f"\033[90m  Collecting addresses...\033[0m")
     else:
         for i, (addr, data) in enumerate(ranked[:25], 1):
             size = data["size"]
             col = "\033[92m" if size > 0 else "\033[91m"
             side = "LONG" if size > 0 else "SHORT"
-            entry = f"${data['entry_px']:.3f}" if data["entry_px"] > 0 else "-"
+            entry = data["entry_px"]
+            entry_s = f"${entry:.3f}" if entry > 0 else "-"
+            notional = abs(size * entry) if entry > 0 else 0
+            notional_s = f"${notional:,.0f}" if notional > 0 else "-"
             upnl = data["upnl"]
             upnl_col = "\033[92m" if upnl >= 0 else "\033[91m"
 
@@ -234,9 +304,10 @@ def render(last_trades):
                 lev = f"{lev_info['value']}x"
 
             print(f"  {i:>3}  {short_addr(addr):<15} "
+                  f"{col}{notional_s:>12}\033[0m "
                   f"{col}{size:>+12.4f}\033[0m "
                   f"{col}{side:>6}\033[0m "
-                  f"{entry:>10} "
+                  f"{entry_s:>10} "
                   f"{upnl_col}{'$'+f'{upnl:+.2f}':>12}\033[0m "
                   f"{lev:>5}")
 
@@ -249,18 +320,18 @@ def render(last_trades):
     print(f"\033[93m  ── Recent Trades {'─'*62}\033[0m")
     print(f"\033[90m  {'Time':<10} {'Price':>10} {'Size':>10} {'Value':>10} "
           f"{'Side':>5}  {'Buyer':<13} {'Seller':<13}\033[0m")
-    print(f"\033[90m  {'─'*75}\033[0m")
+    print(f"\033[90m  {'─'*80}\033[0m")
 
     if not last_trades:
         print(f"\033[90m  Waiting for trades...\033[0m")
     else:
-        for t in last_trades[-15:]:
+        for t in last_trades[-12:]:
             ts = datetime.fromtimestamp(t["time"] / 1000).strftime("%H:%M:%S")
             val = t["price"] * t["size"]
             is_buy = t["side"] == "A"
             col = "\033[92m" if is_buy else "\033[91m"
             side = "BUY" if is_buy else "SELL"
-            val_s = f"${val:.2f}" if val < 1000 else f"${val/1000:.1f}K"
+            val_s = f"${val:,.2f}" if val < 1000 else f"${val/1000:.1f}K"
 
             print(f"  {ts:<10} "
                   f"{'$'+f'{t['price']:.3f}':>10} "
@@ -270,8 +341,7 @@ def render(last_trades):
                   f"{short_addr(t['buyer']):<13} "
                   f"{short_addr(t['seller']):<13}")
 
-    ttl = get_position_ttl()
-    print(f"\n\033[90m  Ctrl+C to exit  |  Auto-save 30s  |  Position TTL: {ttl}s  |  ~{len(known_addresses)*60//max(ttl,1)} req/min\033[0m")
+    print(f"\n\033[90m  Ctrl+C to exit  |  TTL: {ttl}s  |  Batch: {BATCH_SIZE}/req  |  Auto-save 30s\033[0m")
 
 
 # ===== メイン =====
@@ -286,17 +356,23 @@ async def main():
     print(f"\033[96m  Loaded {loaded} saved addresses from {DATA_FILE.name}\033[0m")
 
     async with aiohttp.ClientSession() as session:
-        # 起動時に過去の約定からアドレス収集
-        print(f"\033[90m  Fetching recent trades to collect addresses...\033[0m")
-        collected = await fetch_recent_trades(session)
-        print(f"\033[96m  Collected {collected} addresses from recent trades\033[0m")
+        # リーダーボードからアドレス収集
+        print(f"\033[90m  Fetching leaderboard...\033[0m")
+        lb_count = await fetch_leaderboard(session)
+        print(f"\033[96m  Leaderboard: {lb_count} addresses\033[0m")
+
+        # 過去の約定からアドレス収集
+        print(f"\033[90m  Fetching recent trades...\033[0m")
+        rt_count = await fetch_recent_trades(session)
+        print(f"\033[96m  Recent trades: {rt_count} addresses\033[0m")
         print(f"\033[96m  Total known: {len(known_addresses)} addresses\033[0m")
 
         # 初回ポジション取得
-        print(f"\033[90m  Fetching positions for all addresses...\033[0m")
+        print(f"\033[90m  Fetching positions (batch API)...\033[0m")
         await update_all_positions(session)
         save_addresses()
-        print(f"\033[92m  Ready! Connecting to WebSocket...\033[0m")
+        active = sum(1 for d in positions.values() if d["size"] != 0)
+        print(f"\033[92m  Ready! {active} active positions found. Connecting...\033[0m")
 
         last_save = time.time()
 
@@ -316,19 +392,13 @@ async def main():
                         if data.get("channel") != "trades":
                             continue
 
-                        trades = data.get("data", [])
-                        new_addr = False
-                        for trade in trades:
+                        for trade in data.get("data", []):
                             trade_count += 1
                             users = trade.get("users", ["?", "?"])
                             buyer, seller = users[0], users[1]
 
-                            if buyer not in known_addresses:
-                                known_addresses.add(buyer)
-                                new_addr = True
-                            if seller not in known_addresses:
-                                known_addresses.add(seller)
-                                new_addr = True
+                            known_addresses.add(buyer)
+                            known_addresses.add(seller)
 
                             last_trades.append({
                                 "time": trade["time"],
@@ -344,13 +414,11 @@ async def main():
 
                         now = time.time()
 
-                        # 5秒ごとに画面更新 + ポジション更新
                         if now - last_update >= 5:
                             await update_all_positions(session)
                             render(last_trades)
                             last_update = now
 
-                        # 30秒ごとに保存
                         if now - last_save >= 30:
                             save_addresses()
                             last_save = now
