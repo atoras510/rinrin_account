@@ -19,34 +19,39 @@
         .stat-value { font-size: 1.1rem; color: #00d4aa; font-weight: bold; }
         .stat-label { font-size: 0.65rem; color: #666; }
         .chart-container { background: #111; border-radius: 12px; padding: 15px; margin-bottom: 20px; }
-        #chart { width: 100%; height: 350px; }
+        #chart { width: 100%; height: 300px; }
         .interval-buttons { margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
-        .interval-buttons button { background: #222; color: #888; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
+        .interval-buttons button { background: #222; color: #888; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
         .interval-buttons button.active { background: #00d4aa; color: #000; }
         .interval-buttons button:hover { background: #333; }
         .info { font-size: 0.7rem; color: #666; margin-left: 10px; }
         .trades-container { background: #111; border-radius: 12px; overflow: hidden; }
-        .trades-header { display: grid; grid-template-columns: 80px 95px 75px 85px 1fr 1fr 55px; padding: 12px 15px; background: #1a1a2e; color: #888; font-size: 0.75rem; }
-        .trades-list { max-height: 250px; overflow-y: auto; }
-        .trade-row { display: grid; grid-template-columns: 80px 95px 75px 85px 1fr 1fr 55px; padding: 8px 15px; border-bottom: 1px solid #222; font-size: 0.75rem; }
+        .trades-header-bar { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background: #1a1a2e; }
+        .trades-title { color: #888; font-size: 0.85rem; }
+        .trades-header { display: grid; grid-template-columns: 75px 90px 70px 80px 1fr 1fr 50px; padding: 10px 15px; background: #151525; color: #666; font-size: 0.7rem; }
+        .trades-list { height: 400px; overflow-y: auto; }
+        .trade-row { display: grid; grid-template-columns: 75px 90px 70px 80px 1fr 1fr 50px; padding: 8px 15px; border-bottom: 1px solid #1a1a2e; font-size: 0.75rem; }
+        .trade-row:hover { background: #1a1a2e; }
+        .trade-row.new { animation: flash 0.5s; }
+        @keyframes flash { from { background: rgba(0,212,170,0.3); } to { background: transparent; } }
         .side-buy { color: #00d4aa; font-weight: bold; }
         .side-sell { color: #ff4757; font-weight: bold; }
         .address a { color: #6c7a89; text-decoration: none; font-size: 0.7rem; }
         .address a:hover { color: #00d4aa; }
         footer { text-align: center; padding: 15px; color: #444; font-size: 0.7rem; }
         footer a { color: #00d4aa; }
-        .btn-action { padding: 8px 12px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.8rem; margin-left: 5px; }
-        .btn-export { background: #1a5fb4; color: #fff; }
+        .btn-action { padding: 6px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.75rem; }
         .btn-clear { background: #ff4757; color: #fff; }
-        .btn-action:hover { opacity: 0.8; }
-        .storage-bar { display: flex; gap: 10px; align-items: center; margin-top: 10px; flex-wrap: wrap; }
+        .btn-export { background: #1a5fb4; color: #fff; margin-right: 5px; }
+        .loading { text-align: center; padding: 20px; color: #666; }
+        .scroll-top { position: fixed; bottom: 20px; right: 20px; background: #00d4aa; color: #000; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; display: none; }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>xyz:SILVER Monitor</h1>
-            <p style="color:#888;font-size:0.85rem;">Real-time Chart & Trades with Data Storage</p>
+            <p style="color:#888;font-size:0.8rem;">Real-time Chart & Trades with Full History</p>
         </header>
         <div class="status-bar">
             <div class="status">
@@ -55,9 +60,7 @@
             </div>
             <div class="stats">
                 <div class="stat"><div class="stat-value" id="currentPrice">$--</div><div class="stat-label">Price</div></div>
-                <div class="stat"><div class="stat-value" id="sessionTrades">0</div><div class="stat-label">Session</div></div>
-                <div class="stat"><div class="stat-value" id="totalTrades">0</div><div class="stat-label">Total Saved</div></div>
-                <div class="stat"><div class="stat-value" id="totalCandles">0</div><div class="stat-label">Candles</div></div>
+                <div class="stat"><div class="stat-value" id="totalTrades">0</div><div class="stat-label">Total Trades</div></div>
                 <div class="stat"><div class="stat-value" id="dataSize">0 KB</div><div class="stat-label">Data Size</div></div>
             </div>
         </div>
@@ -65,7 +68,6 @@
             <div class="interval-buttons">
                 <button onclick="changeInterval('1s')">1s</button>
                 <button onclick="changeInterval('5s')">5s</button>
-                <button onclick="changeInterval('15s')">15s</button>
                 <button onclick="changeInterval('1m')" class="active">1m</button>
                 <button onclick="changeInterval('5m')">5m</button>
                 <button onclick="changeInterval('15m')">15m</button>
@@ -73,31 +75,39 @@
                 <span class="info" id="chartInfo">1m</span>
             </div>
             <div id="chart"></div>
-            <div class="storage-bar">
-                <button class="btn-action btn-export" onclick="exportTradesCSV()">Export Trades CSV</button>
-                <button class="btn-action btn-export" onclick="exportCandlesCSV()">Export Candles CSV</button>
-                <button class="btn-action btn-clear" onclick="clearAllData()">Clear All Data</button>
-            </div>
         </div>
         <div class="trades-container">
+            <div class="trades-header-bar">
+                <span class="trades-title">Trade History (scroll for more)</span>
+                <div>
+                    <button class="btn-action btn-export" onclick="exportCSV()">Export CSV</button>
+                    <button class="btn-action btn-clear" onclick="clearAllData()">Clear</button>
+                </div>
+            </div>
             <div class="trades-header">
                 <div>Time</div><div>Price</div><div>Size</div><div>Value</div><div>Buyer</div><div>Seller</div><div>Side</div>
             </div>
             <div class="trades-list" id="tradesList">
-                <div style="padding:30px;text-align:center;color:#666;">Waiting for trades...</div>
+                <div class="loading">Loading...</div>
             </div>
         </div>
         <footer>
-            <p>Data from <a href="https://app.hyperliquid.xyz/trade/xyz:SILVER" target="_blank">Hyperliquid</a> | Trades & Candles saved in IndexedDB</p>
+            <p>Data from <a href="https://app.hyperliquid.xyz/trade/xyz:SILVER" target="_blank">Hyperliquid</a></p>
         </footer>
     </div>
+    <button class="scroll-top" id="scrollTop" onclick="scrollToTop()">↑ Latest</button>
+
     <script>
-        const COIN = 'xyz:SILVER', MAX_DISPLAY_TRADES = 50, DB_NAME = 'SilverMonitorDB', DB_VERSION = 1;
-        let ws, sessionTrades = 0, currentInterval = '1m';
-        let chart, candleSeries, db;
+        const COIN = 'xyz:SILVER', DB_NAME = 'SilverMonitorDB', DB_VERSION = 1;
+        const BATCH_SIZE = 100;
+        let ws, db, chart, candleSeries;
+        let currentInterval = '1m';
+        let isLoadingMore = false;
+        let oldestLoadedId = Infinity;
+        let newestTrades = [];
         
-        const intervals = ['1s', '5s', '15s', '1m', '5m', '15m', '1h'];
-        const intervalSeconds = { '1s': 1, '5s': 5, '15s': 15, '1m': 60, '5m': 300, '15m': 900, '1h': 3600 };
+        const intervals = ['1s', '5s', '1m', '5m', '15m', '1h'];
+        const intervalSeconds = { '1s': 1, '5s': 5, '1m': 60, '5m': 300, '15m': 900, '1h': 3600 };
         let candleData = {};
         intervals.forEach(i => candleData[i] = {});
 
@@ -110,8 +120,8 @@
                 request.onupgradeneeded = (e) => {
                     const db = e.target.result;
                     if (!db.objectStoreNames.contains('trades')) {
-                        const tradeStore = db.createObjectStore('trades', { keyPath: 'id', autoIncrement: true });
-                        tradeStore.createIndex('time', 'time', { unique: false });
+                        const store = db.createObjectStore('trades', { keyPath: 'id', autoIncrement: true });
+                        store.createIndex('time', 'time', { unique: false });
                     }
                     if (!db.objectStoreNames.contains('candles')) {
                         db.createObjectStore('candles', { keyPath: 'key' });
@@ -121,50 +131,50 @@
         }
 
         async function saveTrade(trade) {
-            if (!db) return;
-            const tx = db.transaction('trades', 'readwrite');
-            const store = tx.objectStore('trades');
-            const users = trade.users || ['?', '?'];
-            store.add({
-                time: trade.time,
-                price: parseFloat(trade.px),
-                size: parseFloat(trade.sz),
-                side: trade.side,
-                buyer: users[0],
-                seller: users[1],
-                hash: trade.hash || ''
+            if (!db) return null;
+            return new Promise(resolve => {
+                const tx = db.transaction('trades', 'readwrite');
+                const store = tx.objectStore('trades');
+                const users = trade.users || ['?', '?'];
+                const request = store.add({
+                    time: trade.time,
+                    price: parseFloat(trade.px),
+                    size: parseFloat(trade.sz),
+                    side: trade.side,
+                    buyer: users[0],
+                    seller: users[1],
+                    hash: trade.hash || ''
+                });
+                request.onsuccess = () => resolve(request.result);
+                request.onerror = () => resolve(null);
             });
         }
 
-        async function saveCandles() {
-            if (!db) return;
-            const tx = db.transaction('candles', 'readwrite');
-            const store = tx.objectStore('candles');
-            store.put({ key: 'data', candles: candleData, updated: Date.now() });
-        }
-
-        async function loadCandles() {
-            if (!db) return;
-            const tx = db.transaction('candles', 'readonly');
-            const store = tx.objectStore('candles');
-            const request = store.get('data');
+        async function getTradesPage(beforeId = Infinity, limit = BATCH_SIZE) {
+            if (!db) return [];
             return new Promise(resolve => {
-                request.onsuccess = () => {
-                    if (request.result && request.result.candles) {
-                        candleData = request.result.candles;
+                const tx = db.transaction('trades', 'readonly');
+                const store = tx.objectStore('trades');
+                const results = [];
+                const request = store.openCursor(IDBKeyRange.upperBound(beforeId, true), 'prev');
+                request.onsuccess = (e) => {
+                    const cursor = e.target.result;
+                    if (cursor && results.length < limit) {
+                        results.push({ id: cursor.key, ...cursor.value });
+                        cursor.continue();
+                    } else {
+                        resolve(results);
                     }
-                    resolve();
                 };
-                request.onerror = () => resolve();
+                request.onerror = () => resolve([]);
             });
         }
 
         async function getTradeCount() {
             if (!db) return 0;
-            const tx = db.transaction('trades', 'readonly');
-            const store = tx.objectStore('trades');
             return new Promise(resolve => {
-                const request = store.count();
+                const tx = db.transaction('trades', 'readonly');
+                const request = tx.objectStore('trades').count();
                 request.onsuccess = () => resolve(request.result);
                 request.onerror = () => resolve(0);
             });
@@ -172,73 +182,140 @@
 
         async function getAllTrades() {
             if (!db) return [];
-            const tx = db.transaction('trades', 'readonly');
-            const store = tx.objectStore('trades');
             return new Promise(resolve => {
-                const request = store.getAll();
+                const tx = db.transaction('trades', 'readonly');
+                const request = tx.objectStore('trades').getAll();
                 request.onsuccess = () => resolve(request.result || []);
                 request.onerror = () => resolve([]);
             });
         }
 
+        async function saveCandles() {
+            if (!db) return;
+            const tx = db.transaction('candles', 'readwrite');
+            tx.objectStore('candles').put({ key: 'data', candles: candleData });
+        }
+
+        async function loadCandles() {
+            if (!db) return;
+            return new Promise(resolve => {
+                const tx = db.transaction('candles', 'readonly');
+                const request = tx.objectStore('candles').get('data');
+                request.onsuccess = () => {
+                    if (request.result?.candles) candleData = request.result.candles;
+                    resolve();
+                };
+                request.onerror = () => resolve();
+            });
+        }
+
         async function clearAllData() {
-            if (!confirm('全ての約定履歴とローソク足データを削除しますか？')) return;
+            if (!confirm('全データを削除しますか？')) return;
             const tx = db.transaction(['trades', 'candles'], 'readwrite');
             tx.objectStore('trades').clear();
             tx.objectStore('candles').clear();
             intervals.forEach(i => candleData[i] = {});
+            document.getElementById('tradesList').innerHTML = '<div class="loading">No data</div>';
+            oldestLoadedId = Infinity;
             updateChart();
             updateStats();
-            alert('データを削除しました');
         }
 
-        async function exportTradesCSV() {
+        async function exportCSV() {
             const trades = await getAllTrades();
-            if (trades.length === 0) { alert('エクスポートするデータがありません'); return; }
-            
-            let csv = 'Time,DateTime,Price,Size,Value,Side,Buyer,Seller,Hash\n';
+            if (!trades.length) return alert('データがありません');
+            let csv = 'Time,DateTime,Price,Size,Value,Side,Buyer,Seller\n';
             trades.forEach(t => {
-                const dt = new Date(t.time).toISOString();
-                const value = (t.price * t.size).toFixed(2);
-                const side = t.side === 'A' ? 'BUY' : 'SELL';
-                csv += `${t.time},${dt},${t.price},${t.size},${value},${side},${t.buyer},${t.seller},${t.hash}\n`;
+                csv += `${t.time},${new Date(t.time).toISOString()},${t.price},${t.size},${(t.price*t.size).toFixed(2)},${t.side==='A'?'BUY':'SELL'},${t.buyer},${t.seller}\n`;
             });
-            
-            downloadCSV(csv, `xyz_silver_trades_${Date.now()}.csv`);
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const a = document.createElement('a');
+            a.href = URL.createObjectURL(blob);
+            a.download = `silver_trades_${Date.now()}.csv`;
+            a.click();
         }
 
-        function exportCandlesCSV() {
-            const interval = currentInterval;
-            const data = Object.values(candleData[interval]).sort((a, b) => a.time - b.time);
-            if (data.length === 0) { alert('エクスポートするデータがありません'); return; }
-            
-            let csv = 'Time,DateTime,Open,High,Low,Close\n';
-            data.forEach(c => {
-                const dt = new Date(c.time * 1000).toISOString();
-                csv += `${c.time},${dt},${c.open},${c.high},${c.low},${c.close}\n`;
-            });
-            
-            downloadCSV(csv, `xyz_silver_candles_${interval}_${Date.now()}.csv`);
+        // ===== UI =====
+        function createTradeRow(t, isNew = false) {
+            const row = document.createElement('div');
+            row.className = 'trade-row' + (isNew ? ' new' : '');
+            row.dataset.id = t.id;
+            const value = t.price * t.size;
+            const isBuy = t.side === 'A';
+            row.innerHTML = `
+                <div>${new Date(t.time).toLocaleTimeString('ja-JP')}</div>
+                <div>$${t.price.toFixed(3)}</div>
+                <div>${t.size.toFixed(2)}</div>
+                <div>$${value >= 1000 ? (value/1000).toFixed(2)+'K' : value.toFixed(2)}</div>
+                <div class="address"><a href="https://hyperbot.network/trader/${t.buyer}" target="_blank">${t.buyer.slice(0,6)}...${t.buyer.slice(-4)}</a></div>
+                <div class="address"><a href="https://hyperbot.network/trader/${t.seller}" target="_blank">${t.seller.slice(0,6)}...${t.seller.slice(-4)}</a></div>
+                <div class="${isBuy ? 'side-buy' : 'side-sell'}">${isBuy ? 'BUY' : 'SELL'}</div>
+            `;
+            return row;
         }
 
-        function downloadCSV(content, filename) {
-            const blob = new Blob([content], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = filename;
-            link.click();
+        async function loadMoreTrades() {
+            if (isLoadingMore) return;
+            isLoadingMore = true;
+            
+            const trades = await getTradesPage(oldestLoadedId, BATCH_SIZE);
+            if (trades.length === 0) {
+                isLoadingMore = false;
+                return;
+            }
+            
+            const list = document.getElementById('tradesList');
+            const loading = list.querySelector('.loading');
+            if (loading) loading.remove();
+            
+            trades.forEach(t => {
+                list.appendChild(createTradeRow(t));
+                if (t.id < oldestLoadedId) oldestLoadedId = t.id;
+            });
+            
+            isLoadingMore = false;
+        }
+
+        async function addNewTrade(trade) {
+            const id = await saveTrade(trade);
+            if (!id) return;
+            
+            const t = {
+                id,
+                time: trade.time,
+                price: parseFloat(trade.px),
+                size: parseFloat(trade.sz),
+                side: trade.side,
+                buyer: (trade.users || ['?','?'])[0],
+                seller: (trade.users || ['?','?'])[1]
+            };
+            
+            const list = document.getElementById('tradesList');
+            const loading = list.querySelector('.loading');
+            if (loading) loading.remove();
+            
+            const row = createTradeRow(t, true);
+            list.insertBefore(row, list.firstChild);
+            
+            // 表示上限（メモリ節約）
+            while (list.children.length > 500) {
+                const last = list.lastChild;
+                oldestLoadedId = Math.min(oldestLoadedId, parseInt(last.dataset.id) || Infinity);
+                list.removeChild(last);
+            }
+            
+            document.getElementById('currentPrice').textContent = '$' + t.price.toFixed(3);
+            updateAllCandles(trade);
+        }
+
+        function scrollToTop() {
+            document.getElementById('tradesList').scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         async function updateStats() {
             const count = await getTradeCount();
             document.getElementById('totalTrades').textContent = count.toLocaleString();
-            
-            let totalCandles = 0;
-            intervals.forEach(i => totalCandles += Object.keys(candleData[i]).length);
-            document.getElementById('totalCandles').textContent = totalCandles.toLocaleString();
-            
-            // データサイズ概算
-            const size = JSON.stringify(candleData).length + (count * 200);
+            const size = JSON.stringify(candleData).length + (count * 150);
             document.getElementById('dataSize').textContent = (size / 1024).toFixed(1) + ' KB';
         }
 
@@ -246,8 +323,7 @@
         function initChart() {
             const container = document.getElementById('chart');
             chart = LightweightCharts.createChart(container, {
-                width: container.clientWidth,
-                height: 350,
+                width: container.clientWidth, height: 300,
                 layout: { background: { type: 'solid', color: '#111' }, textColor: '#888' },
                 grid: { vertLines: { color: '#222' }, horzLines: { color: '#222' } },
                 rightPriceScale: { borderColor: '#333' },
@@ -266,11 +342,9 @@
         function updateAllCandles(trade) {
             const price = parseFloat(trade.px);
             const tradeSec = Math.floor(trade.time / 1000);
-            
             intervals.forEach(interval => {
                 const sec = intervalSeconds[interval];
                 const candleTime = Math.floor(tradeSec / sec) * sec;
-                
                 if (!candleData[interval][candleTime]) {
                     candleData[interval][candleTime] = { time: candleTime, open: price, high: price, low: price, close: price };
                 } else {
@@ -280,15 +354,13 @@
                     c.close = price;
                 }
             });
-            
             updateChart();
         }
 
         function updateChart() {
-            const data = candleData[currentInterval];
-            const sorted = Object.values(data).sort((a, b) => a.time - b.time);
-            candleSeries.setData(sorted);
-            document.getElementById('chartInfo').textContent = `${currentInterval} (${sorted.length})`;
+            const data = Object.values(candleData[currentInterval]).sort((a, b) => a.time - b.time);
+            candleSeries.setData(data);
+            document.getElementById('chartInfo').textContent = `${currentInterval} (${data.length})`;
         }
 
         function changeInterval(interval) {
@@ -299,58 +371,44 @@
             chart.timeScale().fitContent();
         }
 
-        // ===== Trades =====
-        const formatTime = ts => new Date(ts).toLocaleTimeString('ja-JP');
-        const formatPrice = p => '$' + parseFloat(p).toFixed(3);
-        const formatVol = v => v >= 1e6 ? '$'+(v/1e6).toFixed(2)+'M' : v >= 1e3 ? '$'+(v/1e3).toFixed(2)+'K' : '$'+v.toFixed(2);
-        const shortAddr = a => a && a.length > 12 ? a.slice(0,6)+'...'+a.slice(-4) : a || '?';
-
-        function updateStatus(connected, text) {
-            document.getElementById('statusDot').classList.toggle('connected', connected);
-            document.getElementById('statusText').textContent = text || (connected ? 'Connected' : 'Disconnected');
-        }
-
-        function addTrade(t) {
-            const list = document.getElementById('tradesList');
-            if (sessionTrades === 0) list.innerHTML = '';
-            
-            sessionTrades++;
-            document.getElementById('sessionTrades').textContent = sessionTrades;
-            document.getElementById('currentPrice').textContent = formatPrice(t.px);
-            
-            // 全時間足を更新
-            updateAllCandles(t);
-            
-            // IndexedDBに保存
-            saveTrade(t);
-            
-            // 表示用
-            const users = t.users || ['?','?'], price = parseFloat(t.px), size = parseFloat(t.sz), value = price * size, isBuy = t.side === 'A';
-            const row = document.createElement('div');
-            row.className = 'trade-row';
-            row.innerHTML = '<div>' + formatTime(t.time) + '</div><div>' + formatPrice(t.px) + '</div><div>' + size.toFixed(2) + '</div><div>' + formatVol(value) + '</div><div class="address"><a href="https://hyperbot.network/trader/' + users[0] + '" target="_blank">' + shortAddr(users[0]) + '</a></div><div class="address"><a href="https://hyperbot.network/trader/' + users[1] + '" target="_blank">' + shortAddr(users[1]) + '</a></div><div class="' + (isBuy ? 'side-buy' : 'side-sell') + '">' + (isBuy ? 'BUY' : 'SELL') + '</div>';
-            list.insertBefore(row, list.firstChild);
-            while (list.children.length > MAX_DISPLAY_TRADES) list.removeChild(list.lastChild);
-        }
-
+        // ===== WebSocket =====
         function connect() {
-            updateStatus(false, 'Connecting...');
-            ws = new WebSocket('wss://api.hyperliquid.xyz/ws');
+            document.getElementById('statusDot').classList.remove('connected');
+            document.getElementById('statusText').textContent = 'Connecting...';
             
+            ws = new WebSocket('wss://api.hyperliquid.xyz/ws');
             ws.onopen = () => {
-                updateStatus(true, 'Connected');
+                document.getElementById('statusDot').classList.add('connected');
+                document.getElementById('statusText').textContent = 'Connected';
                 ws.send(JSON.stringify({ method: 'subscribe', subscription: { type: 'trades', coin: COIN } }));
             };
-            
             ws.onmessage = (e) => {
                 try {
                     const d = JSON.parse(e.data);
-                    if (d.channel === 'trades' && d.data) d.data.forEach(addTrade);
+                    if (d.channel === 'trades' && d.data) d.data.forEach(addNewTrade);
                 } catch (err) {}
             };
+            ws.onclose = () => {
+                document.getElementById('statusDot').classList.remove('connected');
+                document.getElementById('statusText').textContent = 'Reconnecting...';
+                setTimeout(connect, 3000);
+            };
+        }
+
+        // ===== Scroll =====
+        function setupScroll() {
+            const list = document.getElementById('tradesList');
+            const scrollBtn = document.getElementById('scrollTop');
             
-            ws.onclose = () => { updateStatus(false, 'Reconnecting...'); setTimeout(connect, 3000); };
-            ws.onerror = () => updateStatus(false, 'Error');
+            list.addEventListener('scroll', () => {
+                // 下にスクロールしたら「最新へ」ボタン表示
+                scrollBtn.style.display = list.scrollTop > 200 ? 'block' : 'none';
+                
+                // 下端に近づいたら追加読み込み
+                if (list.scrollTop + list.clientHeight >= list.scrollHeight - 100) {
+                    loadMoreTrades();
+                }
+            });
         }
 
         // ===== Init =====
@@ -359,10 +417,10 @@
             await loadCandles();
             initChart();
             updateChart();
+            setupScroll();
+            await loadMoreTrades();
             await updateStats();
             connect();
-            
-            // 定期保存 & 統計更新
             setInterval(() => { saveCandles(); updateStats(); }, 10000);
         }
         
