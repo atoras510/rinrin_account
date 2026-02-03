@@ -35,7 +35,19 @@ DATA_FILE = Path(__file__).parent / "silver_addresses.json"
 known_addresses = set()
 positions = {}
 trade_count = 0
-POSITION_TTL = 60
+
+# アドレス数に応じて更新間隔を自動調整（レートリミット対策）
+# 目標: 600 req/min以下に抑える（上限1200の半分）
+def get_position_ttl():
+    n = len(known_addresses)
+    if n <= 100:
+        return 60       # 100 req/min
+    elif n <= 300:
+        return 120      # 150 req/min
+    elif n <= 600:
+        return 180      # 200 req/min
+    else:
+        return max(300, n // 2)  # 安全マージン
 
 
 # ===== データ永続化 =====
@@ -139,8 +151,9 @@ async def fetch_position(session, address):
 
 async def update_all_positions(session):
     """全アドレスのポジションを一括更新（並列, 10件ずつ）"""
+    ttl = get_position_ttl()
     addrs = [a for a in known_addresses
-             if a not in positions or time.time() - positions.get(a, {}).get("updated", 0) >= POSITION_TTL]
+             if a not in positions or time.time() - positions.get(a, {}).get("updated", 0) >= ttl]
 
     if not addrs:
         return
@@ -257,7 +270,8 @@ def render(last_trades):
                   f"{short_addr(t['buyer']):<13} "
                   f"{short_addr(t['seller']):<13}")
 
-    print(f"\n\033[90m  Ctrl+C to exit  |  Auto-save every 30s  |  Refresh every 5s\033[0m")
+    ttl = get_position_ttl()
+    print(f"\n\033[90m  Ctrl+C to exit  |  Auto-save 30s  |  Position TTL: {ttl}s  |  ~{len(known_addresses)*60//max(ttl,1)} req/min\033[0m")
 
 
 # ===== メイン =====
