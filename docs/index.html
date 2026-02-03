@@ -179,6 +179,16 @@
             font-size: 0.8rem;
         }
 
+        .address a {
+            color: #6c7a89;
+            text-decoration: none;
+        }
+
+        .address a:hover {
+            color: #00d4aa;
+            text-decoration: underline;
+        }
+
         .time {
             color: #888;
         }
@@ -393,8 +403,8 @@
                 <div>${formatPrice(trade.px)}</div>
                 <div>${parseFloat(trade.sz).toFixed(2)}</div>
                 <div>${formatVolume(value)}</div>
-                <div class="address" title="${users[0]}">${shortenAddress(users[0])}</div>
-                <div class="address" title="${users[1]}">${shortenAddress(users[1])}</div>
+                <div class="address"><a href="https://hyperbot.network/trader/${users[0]}" target="_blank" title="${users[0]}">${shortenAddress(users[0])}</a></div>
+                <div class="address"><a href="https://hyperbot.network/trader/${users[1]}" target="_blank" title="${users[1]}">${shortenAddress(users[1])}</a></div>
                 <div class="${isBuy ? 'side-buy' : 'side-sell'}">${isBuy ? 'BUY' : 'SELL'}</div>
             `;
 
