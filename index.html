@@ -11,19 +11,21 @@
         .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
         header { text-align: center; padding: 20px 0; border-bottom: 1px solid #333; margin-bottom: 20px; }
         h1 { color: #00d4aa; font-size: 1.8rem; }
-        .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: #111; border-radius: 8px; margin-bottom: 20px; }
+        .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: #111; border-radius: 8px; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
         .status { display: flex; align-items: center; gap: 10px; }
         .status-dot { width: 12px; height: 12px; border-radius: 50%; background: #ff4444; }
         .status-dot.connected { background: #00d4aa; }
-        .stats { display: flex; gap: 30px; }
-        .stat-value { font-size: 1.3rem; color: #00d4aa; font-weight: bold; }
+        .stats { display: flex; gap: 20px; flex-wrap: wrap; }
+        .stat-value { font-size: 1.2rem; color: #00d4aa; font-weight: bold; }
         .stat-label { font-size: 0.7rem; color: #666; }
         .chart-container { background: #111; border-radius: 12px; padding: 15px; margin-bottom: 20px; }
         #chart { width: 100%; height: 350px; }
-        .interval-buttons { margin-bottom: 10px; }
-        .interval-buttons button { background: #222; color: #888; border: none; padding: 8px 12px; margin-right: 5px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
+        .interval-buttons { margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
+        .interval-buttons button { background: #222; color: #888; border: none; padding: 8px 12px; border-radius: 4px; cursor: pointer; font-size: 0.85rem; }
         .interval-buttons button.active { background: #00d4aa; color: #000; }
         .interval-buttons button:hover { background: #333; }
+        .info { font-size: 0.7rem; color: #666; margin-left: 10px; }
+        .storage-info { font-size: 0.7rem; color: #888; margin-left: auto; }
         .trades-container { background: #111; border-radius: 12px; overflow: hidden; }
         .trades-header { display: grid; grid-template-columns: 80px 100px 80px 90px 1fr 1fr 60px; padding: 12px 15px; background: #1a1a2e; color: #888; font-size: 0.8rem; }
         .trades-list { max-height: 250px; overflow-y: auto; }
@@ -34,14 +36,14 @@
         .address a:hover { color: #00d4aa; }
         footer { text-align: center; padding: 15px; color: #444; font-size: 0.75rem; }
         footer a { color: #00d4aa; }
-        .info { font-size: 0.7rem; color: #666; margin-left: 10px; }
+        .btn-clear { background: #ff4757 !important; color: #fff !important; margin-left: 10px; }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>xyz:SILVER Monitor</h1>
-            <p style="color:#888;font-size:0.85rem;">Hyperliquid Real-time Chart & Trades</p>
+            <p style="color:#888;font-size:0.85rem;">Hyperliquid Real-time Chart & Trades (Data Saved)</p>
         </header>
         <div class="status-bar">
             <div class="status">
@@ -52,18 +54,20 @@
                 <div class="stat"><div class="stat-value" id="currentPrice">$--</div><div class="stat-label">Price</div></div>
                 <div class="stat"><div class="stat-value" id="tradeCount">0</div><div class="stat-label">Trades</div></div>
                 <div class="stat"><div class="stat-value" id="volume">$0</div><div class="stat-label">Volume</div></div>
+                <div class="stat"><div class="stat-value" id="candleCount">0</div><div class="stat-label">Candles(1s)</div></div>
             </div>
         </div>
         <div class="chart-container">
             <div class="interval-buttons">
                 <button onclick="changeInterval('1s')">1s</button>
                 <button onclick="changeInterval('5s')">5s</button>
+                <button onclick="changeInterval('15s')">15s</button>
                 <button onclick="changeInterval('1m')" class="active">1m</button>
                 <button onclick="changeInterval('5m')">5m</button>
                 <button onclick="changeInterval('15m')">15m</button>
                 <button onclick="changeInterval('1h')">1h</button>
-                <button onclick="changeInterval('1d')">1D</button>
-                <span class="info" id="chartInfo">API: 1m</span>
+                <span class="info" id="chartInfo">1m (0 candles)</span>
+                <button class="btn-clear" onclick="clearData()">Clear Data</button>
             </div>
             <div id="chart"></div>
         </div>
@@ -76,15 +80,56 @@
             </div>
         </div>
         <footer>
-            <p>Data from <a href="https://app.hyperliquid.xyz/trade/xyz:SILVER" target="_blank">Hyperliquid</a></p>
+            <p>Data from <a href="https://app.hyperliquid.xyz/trade/xyz:SILVER" target="_blank">Hyperliquid</a> | Data saved in LocalStorage</p>
         </footer>
     </div>
     <script>
-        const COIN = 'xyz:SILVER', MAX_TRADES = 50;
+        const COIN = 'xyz:SILVER', MAX_TRADES = 50, STORAGE_KEY = 'xyz_silver_candles';
         let ws, tradeCount = 0, totalVolume = 0, currentInterval = '1m';
         let chart, candleSeries;
-        let realtimeCandles = {};
-        let apiCandles = [];
+        
+        // 全時間足のデータを保持（メモリ + LocalStorage）
+        const intervals = ['1s', '5s', '15s', '1m', '5m', '15m', '1h'];
+        let candleData = {};
+        
+        // 各インターバルの秒数
+        const intervalSeconds = { '1s': 1, '5s': 5, '15s': 15, '1m': 60, '5m': 300, '15m': 900, '1h': 3600 };
+        const maxCandles = { '1s': 3600, '5s': 2000, '15s': 1500, '1m': 1440, '5m': 500, '15m': 300, '1h': 168 };
+
+        // LocalStorageからデータ読み込み
+        function loadData() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    candleData = JSON.parse(saved);
+                    console.log('Loaded candle data from storage');
+                } else {
+                    intervals.forEach(i => candleData[i] = {});
+                }
+            } catch (e) {
+                console.error('Load error:', e);
+                intervals.forEach(i => candleData[i] = {});
+            }
+        }
+
+        // LocalStorageにデータ保存（5秒ごと）
+        function saveData() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(candleData));
+            } catch (e) {
+                console.error('Save error:', e);
+            }
+        }
+
+        // データクリア
+        function clearData() {
+            if (confirm('全てのローソク足データを削除しますか？')) {
+                intervals.forEach(i => candleData[i] = {});
+                localStorage.removeItem(STORAGE_KEY);
+                updateChart();
+                updateCandleCount();
+            }
+        }
 
         function initChart() {
             const container = document.getElementById('chart');
@@ -106,95 +151,56 @@
             window.addEventListener('resize', () => chart.applyOptions({ width: container.clientWidth }));
         }
 
-        async function fetchCandles(interval) {
-            try {
-                const endTime = Date.now();
-                const intervals = { '1m': 60000, '5m': 300000, '15m': 900000, '1h': 3600000, '1d': 86400000 };
-                const startTime = endTime - (intervals[interval] || 60000) * 300;
-                
-                const res = await fetch('https://api.hyperliquid.xyz/info', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ type: 'candleSnapshot', req: { coin: COIN, interval, startTime, endTime } })
-                });
-                
-                const data = await res.json();
-                if (Array.isArray(data) && data.length > 0) {
-                    apiCandles = data.map(c => ({
-                        time: Math.floor(c.t / 1000),
-                        open: parseFloat(c.o),
-                        high: parseFloat(c.h),
-                        low: parseFloat(c.l),
-                        close: parseFloat(c.c)
-                    }));
-                    candleSeries.setData(apiCandles);
-                    chart.timeScale().fitContent();
-                }
-            } catch (err) {
-                console.error('Fetch error:', err);
-            }
-        }
-
-        function getIntervalSeconds(interval) {
-            const map = { '1s': 1, '5s': 5, '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '1d': 86400 };
-            return map[interval] || 60;
-        }
-
-        function updateRealtimeCandle(trade) {
-            const intervalSec = getIntervalSeconds(currentInterval);
+        // 全時間足を同時に更新
+        function updateAllCandles(trade) {
             const price = parseFloat(trade.px);
             const tradeSec = Math.floor(trade.time / 1000);
-            const candleTime = Math.floor(tradeSec / intervalSec) * intervalSec;
             
-            if (currentInterval === '1s' || currentInterval === '5s') {
-                // リアルタイム足（tradesから生成）
-                if (!realtimeCandles[candleTime]) {
-                    realtimeCandles[candleTime] = { time: candleTime, open: price, high: price, low: price, close: price };
+            intervals.forEach(interval => {
+                const sec = intervalSeconds[interval];
+                const candleTime = Math.floor(tradeSec / sec) * sec;
+                
+                if (!candleData[interval][candleTime]) {
+                    candleData[interval][candleTime] = { time: candleTime, open: price, high: price, low: price, close: price };
                 } else {
-                    const c = realtimeCandles[candleTime];
+                    const c = candleData[interval][candleTime];
                     c.high = Math.max(c.high, price);
                     c.low = Math.min(c.low, price);
                     c.close = price;
                 }
                 
-                const sorted = Object.values(realtimeCandles).sort((a, b) => a.time - b.time).slice(-300);
-                candleSeries.setData(sorted);
-                
                 // 古いデータ削除
-                const keys = Object.keys(realtimeCandles).map(Number).sort((a,b) => a-b);
-                while (keys.length > 300) delete realtimeCandles[keys.shift()];
-            } else {
-                // API足の最新を更新
-                if (apiCandles.length > 0) {
-                    const lastCandle = apiCandles[apiCandles.length - 1];
-                    if (candleTime === lastCandle.time) {
-                        lastCandle.high = Math.max(lastCandle.high, price);
-                        lastCandle.low = Math.min(lastCandle.low, price);
-                        lastCandle.close = price;
-                        candleSeries.update(lastCandle);
-                    } else if (candleTime > lastCandle.time) {
-                        const newCandle = { time: candleTime, open: price, high: price, low: price, close: price };
-                        apiCandles.push(newCandle);
-                        candleSeries.update(newCandle);
-                    }
+                const keys = Object.keys(candleData[interval]).map(Number).sort((a, b) => a - b);
+                while (keys.length > maxCandles[interval]) {
+                    delete candleData[interval][keys.shift()];
                 }
-            }
+            });
+            
+            // 現在表示中のチャートを更新
+            updateChart();
+            updateCandleCount();
+        }
+
+        function updateChart() {
+            const data = candleData[currentInterval];
+            const sorted = Object.values(data).sort((a, b) => a.time - b.time);
+            candleSeries.setData(sorted);
+            
+            const count = sorted.length;
+            document.getElementById('chartInfo').textContent = `${currentInterval} (${count} candles)`;
+        }
+
+        function updateCandleCount() {
+            const count1s = Object.keys(candleData['1s']).length;
+            document.getElementById('candleCount').textContent = count1s;
         }
 
         function changeInterval(interval) {
             currentInterval = interval;
-            document.querySelectorAll('.interval-buttons button').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.interval-buttons button:not(.btn-clear)').forEach(b => b.classList.remove('active'));
             event.target.classList.add('active');
-            
-            const isRealtime = interval === '1s' || interval === '5s';
-            document.getElementById('chartInfo').textContent = isRealtime ? 'Real-time' : 'API: ' + interval;
-            
-            if (isRealtime) {
-                realtimeCandles = {};
-                candleSeries.setData([]);
-            } else {
-                fetchCandles(interval);
-            }
+            updateChart();
+            chart.timeScale().fitContent();
         }
 
         const formatTime = ts => new Date(ts).toLocaleTimeString('ja-JP');
@@ -218,7 +224,8 @@
             document.getElementById('tradeCount').textContent = tradeCount;
             document.getElementById('volume').textContent = formatVol(totalVolume);
             
-            updateRealtimeCandle(t);
+            // 全時間足を更新
+            updateAllCandles(t);
             
             const row = document.createElement('div');
             row.className = 'trade-row';
@@ -247,10 +254,15 @@
             ws.onerror = () => updateStatus(false, 'Error');
         }
 
+        // 初期化
+        loadData();
         initChart();
-        fetchCandles(currentInterval);
+        updateChart();
+        updateCandleCount();
         connect();
-        setInterval(() => { if (!['1s','5s'].includes(currentInterval)) fetchCandles(currentInterval); }, 60000);
+        
+        // 5秒ごとにLocalStorageに保存
+        setInterval(saveData, 5000);
     </script>
 </body>
 </html>
