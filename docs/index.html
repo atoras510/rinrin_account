@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hyperliquid xyz:SILVER Trades Monitor</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', Consolas, monospace;
+            background: #0a0a0f;
+            color: #e0e0e0;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            padding: 30px 0;
+            border-bottom: 1px solid #333;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            color: #00d4aa;
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 20px;
+            background: #111;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+
+        .status {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .status-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: #ff4444;
+            animation: pulse 2s infinite;
+        }
+
+        .status-dot.connected {
+            background: #00d4aa;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+
+        .stats {
+            display: flex;
+            gap: 30px;
+        }
+
+        .stat {
+            text-align: center;
+        }
+
+        .stat-value {
+            font-size: 1.5rem;
+            color: #00d4aa;
+            font-weight: bold;
+        }
+
+        .stat-label {
+            font-size: 0.75rem;
+            color: #666;
+        }
+
+        .price-display {
+            text-align: center;
+            padding: 30px;
+            background: linear-gradient(135deg, #111 0%, #1a1a2e 100%);
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+
+        .current-price {
+            font-size: 3rem;
+            font-weight: bold;
+            color: #fff;
+        }
+
+        .price-change {
+            font-size: 1.2rem;
+            margin-top: 5px;
+        }
+
+        .price-up { color: #00d4aa; }
+        .price-down { color: #ff4757; }
+
+        .trades-container {
+            background: #111;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        .trades-header {
+            display: grid;
+            grid-template-columns: 100px 120px 100px 120px 1fr 1fr 80px;
+            padding: 15px 20px;
+            background: #1a1a2e;
+            font-weight: bold;
+            color: #888;
+            font-size: 0.85rem;
+        }
+
+        .trades-list {
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .trade-row {
+            display: grid;
+            grid-template-columns: 100px 120px 100px 120px 1fr 1fr 80px;
+            padding: 12px 20px;
+            border-bottom: 1px solid #222;
+            font-size: 0.9rem;
+            transition: background 0.3s;
+        }
+
+        .trade-row:hover {
+            background: #1a1a2e;
+        }
+
+        .trade-row.new {
+            animation: fadeIn 0.5s ease;
+        }
+
+        @keyframes fadeIn {
+            from {
+                background: rgba(0, 212, 170, 0.2);
+            }
+            to {
+                background: transparent;
+            }
+        }
+
+        .side-buy {
+            color: #00d4aa;
+            font-weight: bold;
+        }
+
+        .side-sell {
+            color: #ff4757;
+            font-weight: bold;
+        }
+
+        .address {
+            color: #6c7a89;
+            font-size: 0.8rem;
+        }
+
+        .time {
+            color: #888;
+        }
+
+        footer {
+            text-align: center;
+            padding: 30px;
+            color: #444;
+            font-size: 0.8rem;
+        }
+
+        footer a {
+            color: #00d4aa;
+            text-decoration: none;
+        }
+
+        /* Scrollbar */
+        .trades-list::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .trades-list::-webkit-scrollbar-track {
+            background: #111;
+        }
+
+        .trades-list::-webkit-scrollbar-thumb {
+            background: #333;
+            border-radius: 4px;
+        }
+
+        @media (max-width: 1200px) {
+            .trades-header, .trade-row {
+                grid-template-columns: 80px 100px 80px 100px 1fr 1fr;
+            }
+            .trade-row > *:last-child,
+            .trades-header > *:last-child {
+                display: none;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .trades-header, .trade-row {
+                grid-template-columns: 60px 90px 70px 90px;
+            }
+            .trade-row > *:nth-child(5),
+            .trade-row > *:nth-child(6),
+            .trades-header > *:nth-child(5),
+            .trades-header > *:nth-child(6) {
+                display: none;
+            }
+            .stats {
+                gap: 15px;
+            }
+            .current-price {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>xyz:SILVER Trades Monitor</h1>
+            <p class="subtitle">Hyperliquid Real-time Trade Feed</p>
+        </header>
+
+        <div class="status-bar">
+            <div class="status">
+                <div class="status-dot" id="statusDot"></div>
+                <span id="statusText">Connecting...</span>
+            </div>
+            <div class="stats">
+                <div class="stat">
+                    <div class="stat-value" id="tradeCount">0</div>
+                    <div class="stat-label">Trades</div>
+                </div>
+                <div class="stat">
+                    <div class="stat-value" id="volume">$0</div>
+                    <div class="stat-label">Volume</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="price-display">
+            <div class="current-price" id="currentPrice">$--</div>
+            <div class="price-change" id="priceChange">--</div>
+        </div>
+
+        <div class="trades-container">
+            <div class="trades-header">
+                <div>Time</div>
+                <div>Price</div>
+                <div>Size</div>
+                <div>Value</div>
+                <div>Buyer</div>
+                <div>Seller</div>
+                <div>Side</div>
+            </div>
+            <div class="trades-list" id="tradesList">
+                <div style="padding: 40px; text-align: center; color: #666;">
+                    Waiting for trades...
+                </div>
+            </div>
+        </div>
+
+        <footer>
+            <p>Data from <a href="https://app.hyperliquid.xyz/trade/xyz:SILVER" target="_blank">Hyperliquid</a></p>
+            <p style="margin-top: 10px;">WebSocket: wss://api.hyperliquid.xyz/ws</p>
+        </footer>
+    </div>
+
+    <script>
+        const WS_URL = 'wss://api.hyperliquid.xyz/ws';
+        const COIN = 'xyz:SILVER';
+        const MAX_TRADES = 100;
+
+        let ws = null;
+        let tradeCount = 0;
+        let totalVolume = 0;
+        let lastPrice = null;
+        let firstPrice = null;
+        let reconnectAttempts = 0;
+
+        function formatTime(timestamp) {
+            const date = new Date(timestamp);
+            return date.toLocaleTimeString('ja-JP', {
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            });
+        }
+
+        function formatPrice(price) {
+            return '$' + parseFloat(price).toFixed(4);
+        }
+
+        function formatVolume(volume) {
+            if (volume >= 1000000) {
+                return '$' + (volume / 1000000).toFixed(2) + 'M';
+            } else if (volume >= 1000) {
+                return '$' + (volume / 1000).toFixed(2) + 'K';
+            }
+            return '$' + volume.toFixed(2);
+        }
+
+        function shortenAddress(addr) {
+            if (!addr || addr.length < 12) return addr || 'unknown';
+            return addr.slice(0, 6) + '...' + addr.slice(-4);
+        }
+
+        function updateStatus(connected) {
+            const dot = document.getElementById('statusDot');
+            const text = document.getElementById('statusText');
+
+            if (connected) {
+                dot.classList.add('connected');
+                text.textContent = 'Connected';
+            } else {
+                dot.classList.remove('connected');
+                text.textContent = 'Disconnected';
+            }
+        }
+
+        function updatePrice(price) {
+            const priceEl = document.getElementById('currentPrice');
+            const changeEl = document.getElementById('priceChange');
+
+            priceEl.textContent = formatPrice(price);
+
+            if (firstPrice === null) {
+                firstPrice = parseFloat(price);
+            }
+
+            if (lastPrice !== null) {
+                const change = parseFloat(price) - firstPrice;
+                const changePct = ((parseFloat(price) - firstPrice) / firstPrice * 100);
+
+                changeEl.textContent = `${change >= 0 ? '+' : ''}${change.toFixed(4)} (${changePct >= 0 ? '+' : ''}${changePct.toFixed(2)}%)`;
+                changeEl.className = 'price-change ' + (change >= 0 ? 'price-up' : 'price-down');
+            }
+
+            lastPrice = parseFloat(price);
+        }
+
+        function addTrade(trade) {
+            const list = document.getElementById('tradesList');
+
+            // Remove waiting message
+            if (tradeCount === 0) {
+                list.innerHTML = '';
+            }
+
+            const users = trade.users || ['unknown', 'unknown'];
+            const price = parseFloat(trade.px);
+            const size = parseFloat(trade.sz);
+            const value = price * size;
+            const isBuy = trade.side === 'A';
+
+            tradeCount++;
+            totalVolume += value;
+
+            // Update stats
+            document.getElementById('tradeCount').textContent = tradeCount;
+            document.getElementById('volume').textContent = formatVolume(totalVolume);
+            updatePrice(trade.px);
+
+            // Create trade row
+            const row = document.createElement('div');
+            row.className = 'trade-row new';
+            row.innerHTML = `
+                <div class="time">${formatTime(trade.time)}</div>
+                <div>${formatPrice(trade.px)}</div>
+                <div>${parseFloat(trade.sz).toFixed(2)}</div>
+                <div>${formatVolume(value)}</div>
+                <div class="address" title="${users[0]}">${shortenAddress(users[0])}</div>
+                <div class="address" title="${users[1]}">${shortenAddress(users[1])}</div>
+                <div class="${isBuy ? 'side-buy' : 'side-sell'}">${isBuy ? 'BUY' : 'SELL'}</div>
+            `;
+
+            list.insertBefore(row, list.firstChild);
+
+            // Limit trades
+            while (list.children.length > MAX_TRADES) {
+                list.removeChild(list.lastChild);
+            }
+
+            // Remove animation class
+            setTimeout(() => row.classList.remove('new'), 500);
+        }
+
+        function connect() {
+            console.log('Connecting to WebSocket...');
+
+            ws = new WebSocket(WS_URL);
+
+            ws.onopen = () => {
+                console.log('Connected!');
+                updateStatus(true);
+                reconnectAttempts = 0;
+
+                // Subscribe to trades
+                ws.send(JSON.stringify({
+                    method: 'subscribe',
+                    subscription: {
+                        type: 'trades',
+                        coin: COIN
+                    }
+                }));
+            };
+
+            ws.onmessage = (event) => {
+                try {
+                    const data = JSON.parse(event.data);
+
+                    if (data.channel === 'trades') {
+                        const trades = data.data || [];
+                        trades.forEach(trade => addTrade(trade));
+                    } else if (data.channel === 'subscriptionResponse') {
+                        console.log('Subscribed:', data);
+                    }
+                } catch (e) {
+                    console.error('Parse error:', e);
+                }
+            };
+
+            ws.onclose = () => {
+                console.log('Disconnected');
+                updateStatus(false);
+
+                // Reconnect with backoff
+                reconnectAttempts++;
+                const delay = Math.min(1000 * Math.pow(2, reconnectAttempts), 30000);
+                console.log(`Reconnecting in ${delay}ms...`);
+                setTimeout(connect, delay);
+            };
+
+            ws.onerror = (error) => {
+                console.error('WebSocket error:', error);
+            };
+        }
+
+        // Start connection
+        connect();
+    </script>
+</body>
+</html>
