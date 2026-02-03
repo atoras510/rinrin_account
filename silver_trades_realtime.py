@@ -23,8 +23,8 @@ TESTNET_WS_URL = "wss://api.hyperliquid-testnet.xyz/ws"
 # 使用するネットワーク
 WS_URL = MAINNET_WS_URL
 
-# 購読する銘柄
-COIN = "SILVER"
+# 購読する銘柄（Builder-deployed perp）
+COIN = "xyz:SILVER"
 
 
 class SilverTradesMonitor:

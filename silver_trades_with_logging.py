@@ -24,7 +24,7 @@ TESTNET_WS_URL = "wss://api.hyperliquid-testnet.xyz/ws"
 
 # 設定
 WS_URL = MAINNET_WS_URL
-COIN = "SILVER"  # 銘柄名（check_available_coins.pyで確認してください）
+COIN = "xyz:SILVER"  # Builder-deployed perp銘柄
 OUTPUT_DIR = Path("./trade_logs")
 DETAILED_OUTPUT = True  # Trueで詳細表示
 
