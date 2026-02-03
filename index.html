@@ -83,10 +83,8 @@
         const COIN = 'xyz:SILVER', MAX_TRADES = 50;
         let ws, tradeCount = 0, totalVolume = 0, currentInterval = '1m';
         let chart, candleSeries;
-        
-        // 1秒足・5秒足用のデータ
         let realtimeCandles = {};
-        let lastCandleTime = 0;
+        let apiCandles = [];
 
         function initChart() {
             const container = document.getElementById('chart');
@@ -96,17 +94,18 @@
                 layout: { background: { type: 'solid', color: '#111' }, textColor: '#888' },
                 grid: { vertLines: { color: '#222' }, horzLines: { color: '#222' } },
                 rightPriceScale: { borderColor: '#333' },
-                timeScale: { borderColor: '#333', timeVisible: true, secondsVisible: true }
+                timeScale: { borderColor: '#333', timeVisible: true, secondsVisible: true },
+                localization: { priceFormatter: p => p.toFixed(3) }
             });
             candleSeries = chart.addCandlestickSeries({
                 upColor: '#00d4aa', downColor: '#ff4757',
                 borderUpColor: '#00d4aa', borderDownColor: '#ff4757',
-                wickUpColor: '#00d4aa', wickDownColor: '#ff4757'
+                wickUpColor: '#00d4aa', wickDownColor: '#ff4757',
+                priceFormat: { type: 'price', precision: 3, minMove: 0.001 }
             });
             window.addEventListener('resize', () => chart.applyOptions({ width: container.clientWidth }));
         }
 
-        // APIからローソク足取得（1m以上）
         async function fetchCandles(interval) {
             try {
                 const endTime = Date.now();
@@ -121,14 +120,14 @@
                 
                 const data = await res.json();
                 if (Array.isArray(data) && data.length > 0) {
-                    const candles = data.map(c => ({
+                    apiCandles = data.map(c => ({
                         time: Math.floor(c.t / 1000),
                         open: parseFloat(c.o),
                         high: parseFloat(c.h),
                         low: parseFloat(c.l),
                         close: parseFloat(c.c)
                     }));
-                    candleSeries.setData(candles);
+                    candleSeries.setData(apiCandles);
                     chart.timeScale().fitContent();
                 }
             } catch (err) {
@@ -136,30 +135,48 @@
             }
         }
 
-        // リアルタイムでローソク足を生成（1s, 5s用）
+        function getIntervalSeconds(interval) {
+            const map = { '1s': 1, '5s': 5, '1m': 60, '5m': 300, '15m': 900, '1h': 3600, '1d': 86400 };
+            return map[interval] || 60;
+        }
+
         function updateRealtimeCandle(trade) {
-            const intervalMs = currentInterval === '1s' ? 1000 : currentInterval === '5s' ? 5000 : 60000;
+            const intervalSec = getIntervalSeconds(currentInterval);
             const price = parseFloat(trade.px);
-            const time = Math.floor(trade.time / intervalMs) * (intervalMs / 1000);
+            const tradeSec = Math.floor(trade.time / 1000);
+            const candleTime = Math.floor(tradeSec / intervalSec) * intervalSec;
             
-            if (!realtimeCandles[time]) {
-                realtimeCandles[time] = { time, open: price, high: price, low: price, close: price };
-            } else {
-                const candle = realtimeCandles[time];
-                candle.high = Math.max(candle.high, price);
-                candle.low = Math.min(candle.low, price);
-                candle.close = price;
-            }
-            
-            // チャート更新
             if (currentInterval === '1s' || currentInterval === '5s') {
-                const sortedCandles = Object.values(realtimeCandles).sort((a, b) => a.time - b.time).slice(-300);
-                candleSeries.setData(sortedCandles);
+                // リアルタイム足（tradesから生成）
+                if (!realtimeCandles[candleTime]) {
+                    realtimeCandles[candleTime] = { time: candleTime, open: price, high: price, low: price, close: price };
+                } else {
+                    const c = realtimeCandles[candleTime];
+                    c.high = Math.max(c.high, price);
+                    c.low = Math.min(c.low, price);
+                    c.close = price;
+                }
                 
-                // 古いデータ削除（最新300本のみ保持）
-                const keys = Object.keys(realtimeCandles).sort();
-                while (keys.length > 300) {
-                    delete realtimeCandles[keys.shift()];
+                const sorted = Object.values(realtimeCandles).sort((a, b) => a.time - b.time).slice(-300);
+                candleSeries.setData(sorted);
+                
+                // 古いデータ削除
+                const keys = Object.keys(realtimeCandles).map(Number).sort((a,b) => a-b);
+                while (keys.length > 300) delete realtimeCandles[keys.shift()];
+            } else {
+                // API足の最新を更新
+                if (apiCandles.length > 0) {
+                    const lastCandle = apiCandles[apiCandles.length - 1];
+                    if (candleTime === lastCandle.time) {
+                        lastCandle.high = Math.max(lastCandle.high, price);
+                        lastCandle.low = Math.min(lastCandle.low, price);
+                        lastCandle.close = price;
+                        candleSeries.update(lastCandle);
+                    } else if (candleTime > lastCandle.time) {
+                        const newCandle = { time: candleTime, open: price, high: price, low: price, close: price };
+                        apiCandles.push(newCandle);
+                        candleSeries.update(newCandle);
+                    }
                 }
             }
         }
@@ -170,7 +187,7 @@
             event.target.classList.add('active');
             
             const isRealtime = interval === '1s' || interval === '5s';
-            document.getElementById('chartInfo').textContent = isRealtime ? 'Real-time from trades' : 'API: ' + interval;
+            document.getElementById('chartInfo').textContent = isRealtime ? 'Real-time' : 'API: ' + interval;
             
             if (isRealtime) {
                 realtimeCandles = {};
@@ -181,7 +198,7 @@
         }
 
         const formatTime = ts => new Date(ts).toLocaleTimeString('ja-JP');
-        const formatPrice = p => '$' + parseFloat(p).toFixed(4);
+        const formatPrice = p => '$' + parseFloat(p).toFixed(3);
         const formatVol = v => v >= 1e6 ? '$'+(v/1e6).toFixed(2)+'M' : v >= 1e3 ? '$'+(v/1e3).toFixed(2)+'K' : '$'+v.toFixed(2);
         const shortAddr = a => a && a.length > 12 ? a.slice(0,6)+'...'+a.slice(-4) : a || '?';
 
@@ -201,7 +218,6 @@
             document.getElementById('tradeCount').textContent = tradeCount;
             document.getElementById('volume').textContent = formatVol(totalVolume);
             
-            // リアルタイムローソク足更新
             updateRealtimeCandle(t);
             
             const row = document.createElement('div');
