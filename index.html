@@ -3,21 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Hyperliquid xyz:SILVER Trades Monitor</title>
+    <title>xyz:SILVER Trades Monitor</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Courier New', Consolas, monospace; background: #0a0a0f; color: #e0e0e0; min-height: 100vh; }
+        body { font-family: 'Courier New', monospace; background: #0a0a0f; color: #e0e0e0; min-height: 100vh; }
         .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
         header { text-align: center; padding: 30px 0; border-bottom: 1px solid #333; margin-bottom: 20px; }
         h1 { color: #00d4aa; font-size: 2rem; margin-bottom: 10px; }
-        .subtitle { color: #888; font-size: 0.9rem; }
         .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: #111; border-radius: 8px; margin-bottom: 20px; }
         .status { display: flex; align-items: center; gap: 10px; }
         .status-dot { width: 12px; height: 12px; border-radius: 50%; background: #ff4444; animation: pulse 2s infinite; }
         .status-dot.connected { background: #00d4aa; }
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
         .stats { display: flex; gap: 30px; }
-        .stat { text-align: center; }
         .stat-value { font-size: 1.5rem; color: #00d4aa; font-weight: bold; }
         .stat-label { font-size: 0.75rem; color: #666; }
         .price-display { text-align: center; padding: 30px; background: linear-gradient(135deg, #111 0%, #1a1a2e 100%); border-radius: 12px; margin-bottom: 20px; }
@@ -26,28 +24,26 @@
         .price-up { color: #00d4aa; }
         .price-down { color: #ff4757; }
         .trades-container { background: #111; border-radius: 12px; overflow: hidden; }
-        .trades-header { display: grid; grid-template-columns: 100px 120px 100px 120px 1fr 1fr 80px; padding: 15px 20px; background: #1a1a2e; font-weight: bold; color: #888; font-size: 0.85rem; }
-        .trades-list { max-height: 600px; overflow-y: auto; }
-        .trade-row { display: grid; grid-template-columns: 100px 120px 100px 120px 1fr 1fr 80px; padding: 12px 20px; border-bottom: 1px solid #222; font-size: 0.9rem; transition: background 0.3s; }
+        .trades-header { display: grid; grid-template-columns: 90px 110px 90px 100px 1fr 1fr 70px; padding: 15px 20px; background: #1a1a2e; font-weight: bold; color: #888; font-size: 0.85rem; }
+        .trades-list { max-height: 500px; overflow-y: auto; }
+        .trade-row { display: grid; grid-template-columns: 90px 110px 90px 100px 1fr 1fr 70px; padding: 10px 20px; border-bottom: 1px solid #222; font-size: 0.85rem; }
         .trade-row:hover { background: #1a1a2e; }
         .trade-row.new { animation: fadeIn 0.5s ease; }
         @keyframes fadeIn { from { background: rgba(0, 212, 170, 0.2); } to { background: transparent; } }
         .side-buy { color: #00d4aa; font-weight: bold; }
         .side-sell { color: #ff4757; font-weight: bold; }
         .address { color: #6c7a89; font-size: 0.8rem; }
-        .time { color: #888; }
-        footer { text-align: center; padding: 30px; color: #444; font-size: 0.8rem; }
-        footer a { color: #00d4aa; text-decoration: none; }
-        .trades-list::-webkit-scrollbar { width: 8px; }
-        .trades-list::-webkit-scrollbar-track { background: #111; }
-        .trades-list::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+        .address a { color: #6c7a89; text-decoration: none; }
+        .address a:hover { color: #00d4aa; text-decoration: underline; }
+        footer { text-align: center; padding: 20px; color: #444; font-size: 0.8rem; }
+        footer a { color: #00d4aa; }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>xyz:SILVER Trades Monitor</h1>
-            <p class="subtitle">Hyperliquid Real-time Trade Feed</p>
+            <p style="color:#888;">Hyperliquid Real-time Trade Feed</p>
         </header>
         <div class="status-bar">
             <div class="status">
@@ -55,14 +51,8 @@
                 <span id="statusText">Connecting...</span>
             </div>
             <div class="stats">
-                <div class="stat">
-                    <div class="stat-value" id="tradeCount">0</div>
-                    <div class="stat-label">Trades</div>
-                </div>
-                <div class="stat">
-                    <div class="stat-value" id="volume">$0</div>
-                    <div class="stat-label">Volume</div>
-                </div>
+                <div class="stat"><div class="stat-value" id="tradeCount">0</div><div class="stat-label">Trades</div></div>
+                <div class="stat"><div class="stat-value" id="volume">$0</div><div class="stat-label">Volume</div></div>
             </div>
         </div>
         <div class="price-display">
@@ -71,16 +61,10 @@
         </div>
         <div class="trades-container">
             <div class="trades-header">
-                <div>Time</div>
-                <div>Price</div>
-                <div>Size</div>
-                <div>Value</div>
-                <div>Buyer</div>
-                <div>Seller</div>
-                <div>Side</div>
+                <div>Time</div><div>Price</div><div>Size</div><div>Value</div><div>Buyer</div><div>Seller</div><div>Side</div>
             </div>
             <div class="trades-list" id="tradesList">
-                <div style="padding: 40px; text-align: center; color: #666;">Waiting for trades...</div>
+                <div style="padding:40px;text-align:center;color:#666;">Waiting for trades...</div>
             </div>
         </div>
         <footer>
@@ -88,49 +72,56 @@
         </footer>
     </div>
     <script>
-        const WS_URL = 'wss://api.hyperliquid.xyz/ws';
-        const COIN = 'xyz:SILVER';
-        const MAX_TRADES = 100;
-        let ws = null, tradeCount = 0, totalVolume = 0, lastPrice = null, firstPrice = null, reconnectAttempts = 0;
+        const WS_URL = 'wss://api.hyperliquid.xyz/ws', COIN = 'xyz:SILVER', MAX_TRADES = 100;
+        let ws, tradeCount = 0, totalVolume = 0, lastPrice = null, firstPrice = null;
 
-        function formatTime(ts) { return new Date(ts).toLocaleTimeString('ja-JP', {hour:'2-digit',minute:'2-digit',second:'2-digit'}); }
-        function formatPrice(p) { return '$' + parseFloat(p).toFixed(4); }
-        function formatVolume(v) { return v >= 1e6 ? '$'+(v/1e6).toFixed(2)+'M' : v >= 1e3 ? '$'+(v/1e3).toFixed(2)+'K' : '$'+v.toFixed(2); }
-        function shortenAddr(a) { return !a || a.length < 12 ? a||'unknown' : a.slice(0,6)+'...'+a.slice(-4); }
-        function updateStatus(c) { document.getElementById('statusDot').classList.toggle('connected',c); document.getElementById('statusText').textContent = c?'Connected':'Disconnected'; }
+        const formatTime = ts => new Date(ts).toLocaleTimeString('ja-JP');
+        const formatPrice = p => '$' + parseFloat(p).toFixed(4);
+        const formatVol = v => v >= 1e6 ? '$'+(v/1e6).toFixed(2)+'M' : v >= 1e3 ? '$'+(v/1e3).toFixed(2)+'K' : '$'+v.toFixed(2);
+        const shortAddr = a => a && a.length > 12 ? a.slice(0,6)+'...'+a.slice(-4) : a || '?';
+
+        function updateStatus(c) {
+            document.getElementById('statusDot').classList.toggle('connected', c);
+            document.getElementById('statusText').textContent = c ? 'Connected' : 'Disconnected';
+        }
+
         function updatePrice(p) {
             document.getElementById('currentPrice').textContent = formatPrice(p);
-            if (firstPrice === null) firstPrice = parseFloat(p);
-            if (lastPrice !== null) {
-                const ch = parseFloat(p) - firstPrice, pct = ch/firstPrice*100;
-                document.getElementById('priceChange').textContent = `${ch>=0?'+':''}${ch.toFixed(4)} (${pct>=0?'+':''}${pct.toFixed(2)}%)`;
-                document.getElementById('priceChange').className = 'price-change ' + (ch>=0?'price-up':'price-down');
+            if (!firstPrice) firstPrice = parseFloat(p);
+            if (lastPrice) {
+                const ch = parseFloat(p) - firstPrice, pct = ch / firstPrice * 100;
+                document.getElementById('priceChange').textContent = (ch >= 0 ? '+' : '') + ch.toFixed(4) + ' (' + (pct >= 0 ? '+' : '') + pct.toFixed(2) + '%)';
+                document.getElementById('priceChange').className = 'price-change ' + (ch >= 0 ? 'price-up' : 'price-down');
             }
             lastPrice = parseFloat(p);
         }
+
         function addTrade(t) {
             const list = document.getElementById('tradesList');
-            if (tradeCount === 0) list.innerHTML = '';
-            const users = t.users || ['unknown','unknown'], price = parseFloat(t.px), size = parseFloat(t.sz), value = price*size, isBuy = t.side==='A';
+            if (!tradeCount) list.innerHTML = '';
+            const users = t.users || ['?','?'], price = parseFloat(t.px), size = parseFloat(t.sz), value = price * size, isBuy = t.side === 'A';
             tradeCount++; totalVolume += value;
             document.getElementById('tradeCount').textContent = tradeCount;
-            document.getElementById('volume').textContent = formatVolume(totalVolume);
+            document.getElementById('volume').textContent = formatVol(totalVolume);
             updatePrice(t.px);
             const row = document.createElement('div');
             row.className = 'trade-row new';
-            row.innerHTML = `<div class="time">${formatTime(t.time)}</div><div>${formatPrice(t.px)}</div><div>${size.toFixed(2)}</div><div>${formatVolume(value)}</div><div class="address" title="${users[0]}">${shortenAddr(users[0])}</div><div class="address" title="${users[1]}">${shortenAddr(users[1])}</div><div class="${isBuy?'side-buy':'side-sell'}">${isBuy?'BUY':'SELL'}</div>`;
+            row.innerHTML = '<div>' + formatTime(t.time) + '</div><div>' + formatPrice(t.px) + '</div><div>' + size.toFixed(2) + '</div><div>' + formatVol(value) + '</div><div class="address"><a href="https://hyperbot.network/trader/' + users[0] + '" target="_blank" title="' + users[0] + '">' + shortAddr(users[0]) + '</a></div><div class="address"><a href="https://hyperbot.network/trader/' + users[1] + '" target="_blank" title="' + users[1] + '">' + shortAddr(users[1]) + '</a></div><div class="' + (isBuy ? 'side-buy' : 'side-sell') + '">' + (isBuy ? 'BUY' : 'SELL') + '</div>';
             list.insertBefore(row, list.firstChild);
             while (list.children.length > MAX_TRADES) list.removeChild(list.lastChild);
             setTimeout(() => row.classList.remove('new'), 500);
         }
+
         function connect() {
             ws = new WebSocket(WS_URL);
-            ws.onopen = () => { updateStatus(true); reconnectAttempts = 0; ws.send(JSON.stringify({method:'subscribe',subscription:{type:'trades',coin:COIN}})); };
-            ws.onmessage = (e) => { try { const d = JSON.parse(e.data); if (d.channel==='trades') (d.data||[]).forEach(addTrade); } catch(err){} };
-            ws.onclose = () => { updateStatus(false); reconnectAttempts++; setTimeout(connect, Math.min(1000*Math.pow(2,reconnectAttempts),30000)); };
-            ws.onerror = () => {};
+            ws.onopen = () => { updateStatus(true); ws.send(JSON.stringify({method:'subscribe',subscription:{type:'trades',coin:COIN}})); };
+            ws.onmessage = e => { try { const d = JSON.parse(e.data); if (d.channel === 'trades') (d.data || []).forEach(addTrade); } catch(err){} };
+            ws.onclose = () => { updateStatus(false); setTimeout(connect, 3000); };
         }
         connect();
     </script>
+</body>
+</html>
+
 </body>
 </html>
