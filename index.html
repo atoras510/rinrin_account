@@ -8,55 +8,58 @@
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body { font-family: 'Courier New', monospace; background: #0a0a0f; color: #e0e0e0; min-height: 100vh; }
-        .container { max-width: 1600px; margin: 0 auto; padding: 20px; }
-        header { text-align: center; padding: 20px 0; border-bottom: 1px solid #333; margin-bottom: 20px; }
-        h1 { color: #00d4aa; font-size: 1.8rem; }
-        .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 15px 20px; background: #111; border-radius: 8px; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
-        .status { display: flex; align-items: center; gap: 10px; }
-        .status-dot { width: 12px; height: 12px; border-radius: 50%; background: #ff4444; }
+        .container { max-width: 1200px; margin: 0 auto; padding: 15px; }
+        header { text-align: center; padding: 15px 0; border-bottom: 1px solid #333; margin-bottom: 15px; }
+        h1 { color: #00d4aa; font-size: 1.5rem; }
+        .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background: #111; border-radius: 8px; margin-bottom: 15px; flex-wrap: wrap; gap: 10px; }
+        .status { display: flex; align-items: center; gap: 8px; font-size: 0.8rem; }
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #ff4444; }
         .status-dot.connected { background: #00d4aa; }
-        .stats { display: flex; gap: 15px; flex-wrap: wrap; }
-        .stat-value { font-size: 1.1rem; color: #00d4aa; font-weight: bold; }
-        .stat-label { font-size: 0.65rem; color: #666; }
-        .chart-container { background: #111; border-radius: 12px; padding: 15px; margin-bottom: 20px; }
-        #chart { width: 100%; height: 300px; }
-        .interval-buttons { margin-bottom: 10px; display: flex; flex-wrap: wrap; gap: 5px; align-items: center; }
-        .interval-buttons button { background: #222; color: #888; border: none; padding: 6px 10px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; }
+        .stats { display: flex; gap: 20px; }
+        .stat-value { font-size: 1rem; color: #00d4aa; font-weight: bold; }
+        .stat-label { font-size: 0.6rem; color: #666; }
+        .chart-container { background: #111; border-radius: 10px; padding: 12px; margin-bottom: 15px; }
+        #chart { width: 100%; height: 280px; }
+        .interval-buttons { margin-bottom: 8px; display: flex; gap: 4px; align-items: center; }
+        .interval-buttons button { background: #222; color: #888; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.7rem; }
         .interval-buttons button.active { background: #00d4aa; color: #000; }
         .interval-buttons button:hover { background: #333; }
-        .info { font-size: 0.7rem; color: #666; margin-left: 10px; }
-        .trades-container { background: #111; border-radius: 12px; overflow: hidden; }
-        .trades-header-bar { display: flex; justify-content: space-between; align-items: center; padding: 10px 15px; background: #1a1a2e; }
-        .trades-title { color: #888; font-size: 0.85rem; }
-        .trades-header { display: grid; grid-template-columns: 75px 85px 65px 75px minmax(100px,1fr) 70px minmax(100px,1fr) 70px 45px; padding: 10px 15px; background: #151525; color: #666; font-size: 0.7rem; gap: 5px; }
-        .trades-list { height: 400px; overflow-y: auto; }
-        .trade-row { display: grid; grid-template-columns: 75px 85px 65px 75px minmax(100px,1fr) 70px minmax(100px,1fr) 70px 45px; padding: 8px 15px; border-bottom: 1px solid #1a1a2e; font-size: 0.73rem; gap: 5px; align-items: center; }
+        .info { font-size: 0.65rem; color: #555; margin-left: 8px; }
+        .trades-container { background: #111; border-radius: 10px; overflow: hidden; }
+        .trades-header-bar { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; background: #1a1a2e; }
+        .trades-title { color: #888; font-size: 0.75rem; }
+        .trades-header { display: grid; grid-template-columns: 58px 70px 50px 60px 130px 130px 28px; padding: 6px 10px; background: #151525; color: #555; font-size: 0.65rem; }
+        .trades-list { height: 380px; overflow-y: auto; }
+        .trade-row { display: grid; grid-template-columns: 58px 70px 50px 60px 130px 130px 28px; padding: 5px 10px; border-bottom: 1px solid #1a1a2e; font-size: 0.7rem; align-items: center; }
         .trade-row:hover { background: #1a1a2e; }
-        .trade-row.new { animation: flash 0.5s; }
-        @keyframes flash { from { background: rgba(0,212,170,0.3); } to { background: transparent; } }
+        .trade-row.new { animation: flash 0.4s; }
+        @keyframes flash { from { background: rgba(0,212,170,0.25); } to { background: transparent; } }
         .side-buy { color: #00d4aa; font-weight: bold; }
         .side-sell { color: #ff4757; font-weight: bold; }
-        .address a { color: #6c7a89; text-decoration: none; font-size: 0.68rem; }
-        .address a:hover { color: #00d4aa; }
-        .position { font-size: 0.68rem; }
-        .pos-long { color: #00d4aa; }
-        .pos-short { color: #ff4757; }
+        .trader-cell { display: flex; align-items: center; gap: 4px; }
+        .addr { color: #6c7a89; text-decoration: none; font-size: 0.65rem; }
+        .addr:hover { color: #00d4aa; }
+        .pos { font-size: 0.63rem; padding: 1px 4px; border-radius: 3px; }
+        .pos-long { color: #00d4aa; background: rgba(0,212,170,0.12); }
+        .pos-short { color: #ff4757; background: rgba(255,71,87,0.12); }
         .pos-none { color: #444; }
-        .pos-loading { color: #555; }
-        footer { text-align: center; padding: 15px; color: #444; font-size: 0.7rem; }
+        .pos-load { color: #333; }
+        footer { text-align: center; padding: 12px; color: #444; font-size: 0.65rem; }
         footer a { color: #00d4aa; }
-        .btn-action { padding: 6px 10px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.75rem; }
+        .btn-action { padding: 4px 8px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.65rem; }
         .btn-clear { background: #ff4757; color: #fff; }
-        .btn-export { background: #1a5fb4; color: #fff; margin-right: 5px; }
-        .loading { text-align: center; padding: 20px; color: #666; }
-        .scroll-top { position: fixed; bottom: 20px; right: 20px; background: #00d4aa; color: #000; border: none; padding: 10px 15px; border-radius: 8px; cursor: pointer; display: none; z-index: 100; }
+        .btn-export { background: #1a5fb4; color: #fff; margin-right: 4px; }
+        .loading { text-align: center; padding: 15px; color: #555; font-size: 0.7rem; }
+        .scroll-top { position: fixed; bottom: 15px; right: 15px; background: #00d4aa; color: #000; border: none; padding: 8px 12px; border-radius: 6px; cursor: pointer; display: none; z-index: 100; font-size: 0.75rem; }
+        .trades-list::-webkit-scrollbar { width: 6px; }
+        .trades-list::-webkit-scrollbar-track { background: #111; }
+        .trades-list::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>xyz:SILVER Monitor</h1>
-            <p style="color:#888;font-size:0.8rem;">Real-time Chart & Trades with Positions</p>
         </header>
         <div class="status-bar">
             <div class="status">
@@ -65,8 +68,8 @@
             </div>
             <div class="stats">
                 <div class="stat"><div class="stat-value" id="currentPrice">$--</div><div class="stat-label">Price</div></div>
-                <div class="stat"><div class="stat-value" id="totalTrades">0</div><div class="stat-label">Total Trades</div></div>
-                <div class="stat"><div class="stat-value" id="dataSize">0 KB</div><div class="stat-label">Data Size</div></div>
+                <div class="stat"><div class="stat-value" id="totalTrades">0</div><div class="stat-label">Trades</div></div>
+                <div class="stat"><div class="stat-value" id="dataSize">0 KB</div><div class="stat-label">Data</div></div>
             </div>
         </div>
         <div class="chart-container">
@@ -83,97 +86,71 @@
         </div>
         <div class="trades-container">
             <div class="trades-header-bar">
-                <span class="trades-title">Trade History with Positions</span>
+                <span class="trades-title">Trades</span>
                 <div>
-                    <button class="btn-action btn-export" onclick="exportCSV()">Export CSV</button>
+                    <button class="btn-action btn-export" onclick="exportCSV()">CSV</button>
                     <button class="btn-action btn-clear" onclick="clearAllData()">Clear</button>
                 </div>
             </div>
             <div class="trades-header">
-                <div>Time</div><div>Price</div><div>Size</div><div>Value</div><div>Buyer</div><div>Position</div><div>Seller</div><div>Position</div><div>Side</div>
+                <div>Time</div><div>Price</div><div>Size</div><div>Value</div><div>Buyer</div><div>Seller</div><div></div>
             </div>
             <div class="trades-list" id="tradesList">
                 <div class="loading">Loading...</div>
             </div>
         </div>
         <footer>
-            <p>Data from <a href="https://app.hyperliquid.xyz/trade/xyz:SILVER" target="_blank">Hyperliquid</a></p>
+            <p>Data: <a href="https://app.hyperliquid.xyz/trade/xyz:SILVER" target="_blank">Hyperliquid</a></p>
         </footer>
     </div>
-    <button class="scroll-top" id="scrollTop" onclick="scrollToTop()">↑ Latest</button>
+    <button class="scroll-top" id="scrollTop" onclick="scrollToTop()">↑</button>
 
     <script>
         const COIN = 'xyz:SILVER', DEX = 'xyz', DB_NAME = 'SilverMonitorDB', DB_VERSION = 2;
-        const BATCH_SIZE = 100, POSITION_CACHE_TTL = 30000; // 30秒キャッシュ
-        let ws, db, chart, candleSeries;
-        let currentInterval = '1m';
-        let isLoadingMore = false;
-        let oldestLoadedId = Infinity;
-        
-        // ポジションキャッシュ
+        const BATCH_SIZE = 100, POSITION_CACHE_TTL = 30000;
+        let ws, db, chart, candleSeries, currentInterval = '1m', isLoadingMore = false, oldestLoadedId = Infinity;
         const positionCache = new Map();
-        
         const intervals = ['1s', '5s', '1m', '5m', '15m', '1h'];
         const intervalSeconds = { '1s': 1, '5s': 5, '1m': 60, '5m': 300, '15m': 900, '1h': 3600 };
-        let candleData = {};
-        intervals.forEach(i => candleData[i] = {});
+        let candleData = {}; intervals.forEach(i => candleData[i] = {});
 
-        // ===== Position API =====
         async function fetchPosition(address) {
-            // キャッシュチェック
             const cached = positionCache.get(address);
-            if (cached && Date.now() - cached.time < POSITION_CACHE_TTL) {
-                return cached.position;
-            }
-            
+            if (cached && Date.now() - cached.time < POSITION_CACHE_TTL) return cached.position;
             try {
                 const res = await fetch('https://api.hyperliquid.xyz/info', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ type: 'clearinghouseState', user: address, dex: DEX })
                 });
                 const data = await res.json();
-                
                 let position = 0;
-                if (data && data.assetPositions) {
-                    const pos = data.assetPositions.find(p => 
-                        p.position && p.position.coin === COIN
-                    );
-                    if (pos && pos.position) {
-                        position = parseFloat(pos.position.szi) || 0;
-                    }
+                if (data?.assetPositions) {
+                    const pos = data.assetPositions.find(p => p.position?.coin === COIN);
+                    if (pos?.position) position = parseFloat(pos.position.szi) || 0;
                 }
-                
                 positionCache.set(address, { position, time: Date.now() });
                 return position;
-            } catch (err) {
-                console.error('Position fetch error:', err);
-                return null;
-            }
+            } catch { return null; }
         }
 
-        function formatPosition(pos) {
-            if (pos === null) return '<span class="pos-loading">...</span>';
-            if (pos === 0) return '<span class="pos-none">0</span>';
-            if (pos > 0) return `<span class="pos-long">+${pos.toFixed(2)}</span>`;
-            return `<span class="pos-short">${pos.toFixed(2)}</span>`;
+        function fmtPos(p) {
+            if (p === null) return '<span class="pos pos-load">-</span>';
+            if (p === 0) return '<span class="pos pos-none">0</span>';
+            return p > 0 ? `<span class="pos pos-long">+${p.toFixed(1)}</span>` : `<span class="pos pos-short">${p.toFixed(1)}</span>`;
         }
 
-        // ===== IndexedDB =====
         function openDB() {
             return new Promise((resolve, reject) => {
-                const request = indexedDB.open(DB_NAME, DB_VERSION);
-                request.onerror = () => reject(request.error);
-                request.onsuccess = () => { db = request.result; resolve(db); };
-                request.onupgradeneeded = (e) => {
-                    const db = e.target.result;
-                    if (!db.objectStoreNames.contains('trades')) {
-                        const store = db.createObjectStore('trades', { keyPath: 'id', autoIncrement: true });
-                        store.createIndex('time', 'time', { unique: false });
+                const req = indexedDB.open(DB_NAME, DB_VERSION);
+                req.onerror = () => reject(req.error);
+                req.onsuccess = () => { db = req.result; resolve(db); };
+                req.onupgradeneeded = (e) => {
+                    const d = e.target.result;
+                    if (!d.objectStoreNames.contains('trades')) {
+                        const s = d.createObjectStore('trades', { keyPath: 'id', autoIncrement: true });
+                        s.createIndex('time', 'time', { unique: false });
                     }
-                    if (!db.objectStoreNames.contains('candles')) {
-                        db.createObjectStore('candles', { keyPath: 'key' });
-                    }
+                    if (!d.objectStoreNames.contains('candles')) d.createObjectStore('candles', { keyPath: 'key' });
                 };
             });
         }
@@ -182,19 +159,13 @@
             if (!db) return null;
             return new Promise(resolve => {
                 const tx = db.transaction('trades', 'readwrite');
-                const store = tx.objectStore('trades');
                 const users = trade.users || ['?', '?'];
-                const request = store.add({
-                    time: trade.time,
-                    price: parseFloat(trade.px),
-                    size: parseFloat(trade.sz),
-                    side: trade.side,
-                    buyer: users[0],
-                    seller: users[1],
-                    hash: trade.hash || ''
+                const req = tx.objectStore('trades').add({
+                    time: trade.time, price: parseFloat(trade.px), size: parseFloat(trade.sz),
+                    side: trade.side, buyer: users[0], seller: users[1], hash: trade.hash || ''
                 });
-                request.onsuccess = () => resolve(request.result);
-                request.onerror = () => resolve(null);
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => resolve(null);
             });
         }
 
@@ -202,71 +173,56 @@
             if (!db) return [];
             return new Promise(resolve => {
                 const tx = db.transaction('trades', 'readonly');
-                const store = tx.objectStore('trades');
                 const results = [];
-                const request = store.openCursor(IDBKeyRange.upperBound(beforeId, true), 'prev');
-                request.onsuccess = (e) => {
-                    const cursor = e.target.result;
-                    if (cursor && results.length < limit) {
-                        results.push({ id: cursor.key, ...cursor.value });
-                        cursor.continue();
-                    } else {
-                        resolve(results);
-                    }
+                const req = tx.objectStore('trades').openCursor(IDBKeyRange.upperBound(beforeId, true), 'prev');
+                req.onsuccess = (e) => {
+                    const c = e.target.result;
+                    if (c && results.length < limit) { results.push({ id: c.key, ...c.value }); c.continue(); }
+                    else resolve(results);
                 };
-                request.onerror = () => resolve([]);
+                req.onerror = () => resolve([]);
             });
         }
 
         async function getTradeCount() {
             if (!db) return 0;
             return new Promise(resolve => {
-                const tx = db.transaction('trades', 'readonly');
-                const request = tx.objectStore('trades').count();
-                request.onsuccess = () => resolve(request.result);
-                request.onerror = () => resolve(0);
+                const req = db.transaction('trades', 'readonly').objectStore('trades').count();
+                req.onsuccess = () => resolve(req.result);
+                req.onerror = () => resolve(0);
             });
         }
 
         async function getAllTrades() {
             if (!db) return [];
             return new Promise(resolve => {
-                const tx = db.transaction('trades', 'readonly');
-                const request = tx.objectStore('trades').getAll();
-                request.onsuccess = () => resolve(request.result || []);
-                request.onerror = () => resolve([]);
+                const req = db.transaction('trades', 'readonly').objectStore('trades').getAll();
+                req.onsuccess = () => resolve(req.result || []);
+                req.onerror = () => resolve([]);
             });
         }
 
         async function saveCandles() {
             if (!db) return;
-            const tx = db.transaction('candles', 'readwrite');
-            tx.objectStore('candles').put({ key: 'data', candles: candleData });
+            db.transaction('candles', 'readwrite').objectStore('candles').put({ key: 'data', candles: candleData });
         }
 
         async function loadCandles() {
             if (!db) return;
             return new Promise(resolve => {
-                const tx = db.transaction('candles', 'readonly');
-                const request = tx.objectStore('candles').get('data');
-                request.onsuccess = () => {
-                    if (request.result?.candles) candleData = request.result.candles;
-                    resolve();
-                };
-                request.onerror = () => resolve();
+                const req = db.transaction('candles', 'readonly').objectStore('candles').get('data');
+                req.onsuccess = () => { if (req.result?.candles) candleData = req.result.candles; resolve(); };
+                req.onerror = () => resolve();
             });
         }
 
         async function clearAllData() {
             if (!confirm('全データを削除しますか？')) return;
             const tx = db.transaction(['trades', 'candles'], 'readwrite');
-            tx.objectStore('trades').clear();
-            tx.objectStore('candles').clear();
+            tx.objectStore('trades').clear(); tx.objectStore('candles').clear();
             intervals.forEach(i => candleData[i] = {});
             document.getElementById('tradesList').innerHTML = '<div class="loading">No data</div>';
-            oldestLoadedId = Infinity;
-            updateChart();
-            updateStats();
+            oldestLoadedId = Infinity; updateChart(); updateStats();
         }
 
         async function exportCSV() {
@@ -276,130 +232,87 @@
             trades.forEach(t => {
                 csv += `${t.time},${new Date(t.time).toISOString()},${t.price},${t.size},${(t.price*t.size).toFixed(2)},${t.side==='A'?'BUY':'SELL'},${t.buyer},${t.seller}\n`;
             });
-            const blob = new Blob([csv], { type: 'text/csv' });
             const a = document.createElement('a');
-            a.href = URL.createObjectURL(blob);
-            a.download = `silver_trades_${Date.now()}.csv`;
-            a.click();
+            a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+            a.download = `silver_${Date.now()}.csv`; a.click();
         }
 
-        // ===== UI =====
+        function shortAddr(a) { return a && a.length > 10 ? a.slice(0,5)+'..'+a.slice(-3) : a || '?'; }
+        function fmtVal(v) { return v >= 1000 ? (v/1000).toFixed(1)+'K' : v.toFixed(0); }
+
         function createTradeRow(t, isNew = false) {
             const row = document.createElement('div');
             row.className = 'trade-row' + (isNew ? ' new' : '');
-            row.dataset.id = t.id;
-            row.dataset.buyer = t.buyer;
-            row.dataset.seller = t.seller;
-            const value = t.price * t.size;
+            row.dataset.id = t.id; row.dataset.buyer = t.buyer; row.dataset.seller = t.seller;
             const isBuy = t.side === 'A';
-            const shortAddr = a => a && a.length > 10 ? a.slice(0,6)+'...'+a.slice(-4) : a || '?';
-            
             row.innerHTML = `
-                <div>${new Date(t.time).toLocaleTimeString('ja-JP')}</div>
+                <div>${new Date(t.time).toLocaleTimeString('ja-JP',{hour:'2-digit',minute:'2-digit',second:'2-digit'})}</div>
                 <div>$${t.price.toFixed(3)}</div>
-                <div>${t.size.toFixed(2)}</div>
-                <div>$${value >= 1000 ? (value/1000).toFixed(2)+'K' : value.toFixed(2)}</div>
-                <div class="address"><a href="https://hyperbot.network/trader/${t.buyer}" target="_blank">${shortAddr(t.buyer)}</a></div>
-                <div class="position" data-addr="${t.buyer}"><span class="pos-loading">...</span></div>
-                <div class="address"><a href="https://hyperbot.network/trader/${t.seller}" target="_blank">${shortAddr(t.seller)}</a></div>
-                <div class="position" data-addr="${t.seller}"><span class="pos-loading">...</span></div>
-                <div class="${isBuy ? 'side-buy' : 'side-sell'}">${isBuy ? 'BUY' : 'SELL'}</div>
+                <div>${t.size.toFixed(1)}</div>
+                <div>$${fmtVal(t.price * t.size)}</div>
+                <div class="trader-cell"><a class="addr" href="https://hyperbot.network/trader/${t.buyer}" target="_blank">${shortAddr(t.buyer)}</a><span class="pos-cell" data-a="${t.buyer}">${fmtPos(null)}</span></div>
+                <div class="trader-cell"><a class="addr" href="https://hyperbot.network/trader/${t.seller}" target="_blank">${shortAddr(t.seller)}</a><span class="pos-cell" data-a="${t.seller}">${fmtPos(null)}</span></div>
+                <div class="${isBuy ? 'side-buy' : 'side-sell'}">${isBuy ? 'B' : 'S'}</div>
             `;
             return row;
         }
 
         async function loadPositionsForRow(row) {
-            const buyer = row.dataset.buyer;
-            const seller = row.dataset.seller;
-            
-            const [buyerPos, sellerPos] = await Promise.all([
-                fetchPosition(buyer),
-                fetchPosition(seller)
-            ]);
-            
-            const buyerCell = row.querySelector(`.position[data-addr="${buyer}"]`);
-            const sellerCell = row.querySelector(`.position[data-addr="${seller}"]`);
-            
-            if (buyerCell) buyerCell.innerHTML = formatPosition(buyerPos);
-            if (sellerCell) sellerCell.innerHTML = formatPosition(sellerPos);
+            const [bp, sp] = await Promise.all([fetchPosition(row.dataset.buyer), fetchPosition(row.dataset.seller)]);
+            const bc = row.querySelector(`.pos-cell[data-a="${row.dataset.buyer}"]`);
+            const sc = row.querySelector(`.pos-cell[data-a="${row.dataset.seller}"]`);
+            if (bc) bc.innerHTML = fmtPos(bp);
+            if (sc) sc.innerHTML = fmtPos(sp);
         }
 
         async function loadMoreTrades() {
             if (isLoadingMore) return;
             isLoadingMore = true;
-            
             const trades = await getTradesPage(oldestLoadedId, BATCH_SIZE);
-            if (trades.length === 0) {
-                isLoadingMore = false;
-                return;
-            }
-            
+            if (!trades.length) { isLoadingMore = false; return; }
             const list = document.getElementById('tradesList');
-            const loading = list.querySelector('.loading');
-            if (loading) loading.remove();
-            
+            const ld = list.querySelector('.loading'); if (ld) ld.remove();
             for (const t of trades) {
                 const row = createTradeRow(t);
                 list.appendChild(row);
                 if (t.id < oldestLoadedId) oldestLoadedId = t.id;
-                // ポジション取得（バックグラウンド）
                 loadPositionsForRow(row);
             }
-            
             isLoadingMore = false;
         }
 
         async function addNewTrade(trade) {
             const id = await saveTrade(trade);
             if (!id) return;
-            
-            const t = {
-                id,
-                time: trade.time,
-                price: parseFloat(trade.px),
-                size: parseFloat(trade.sz),
-                side: trade.side,
-                buyer: (trade.users || ['?','?'])[0],
-                seller: (trade.users || ['?','?'])[1]
-            };
-            
+            const t = { id, time: trade.time, price: parseFloat(trade.px), size: parseFloat(trade.sz),
+                side: trade.side, buyer: (trade.users||['?','?'])[0], seller: (trade.users||['?','?'])[1] };
             const list = document.getElementById('tradesList');
-            const loading = list.querySelector('.loading');
-            if (loading) loading.remove();
-            
+            const ld = list.querySelector('.loading'); if (ld) ld.remove();
             const row = createTradeRow(t, true);
             list.insertBefore(row, list.firstChild);
-            
-            // ポジション取得
             loadPositionsForRow(row);
-            
-            // 表示上限
             while (list.children.length > 500) {
                 const last = list.lastChild;
                 oldestLoadedId = Math.min(oldestLoadedId, parseInt(last.dataset.id) || Infinity);
                 list.removeChild(last);
             }
-            
             document.getElementById('currentPrice').textContent = '$' + t.price.toFixed(3);
             updateAllCandles(trade);
         }
 
-        function scrollToTop() {
-            document.getElementById('tradesList').scrollTo({ top: 0, behavior: 'smooth' });
-        }
+        function scrollToTop() { document.getElementById('tradesList').scrollTo({ top: 0, behavior: 'smooth' }); }
 
         async function updateStats() {
             const count = await getTradeCount();
             document.getElementById('totalTrades').textContent = count.toLocaleString();
             const size = JSON.stringify(candleData).length + (count * 150);
-            document.getElementById('dataSize').textContent = (size / 1024).toFixed(1) + ' KB';
+            document.getElementById('dataSize').textContent = (size / 1024).toFixed(0) + 'KB';
         }
 
-        // ===== Chart =====
         function initChart() {
-            const container = document.getElementById('chart');
-            chart = LightweightCharts.createChart(container, {
-                width: container.clientWidth, height: 300,
+            const c = document.getElementById('chart');
+            chart = LightweightCharts.createChart(c, {
+                width: c.clientWidth, height: 280,
                 layout: { background: { type: 'solid', color: '#111' }, textColor: '#888' },
                 grid: { vertLines: { color: '#222' }, horzLines: { color: '#222' } },
                 rightPriceScale: { borderColor: '#333' },
@@ -412,22 +325,18 @@
                 wickUpColor: '#00d4aa', wickDownColor: '#ff4757',
                 priceFormat: { type: 'price', precision: 3, minMove: 0.001 }
             });
-            window.addEventListener('resize', () => chart.applyOptions({ width: container.clientWidth }));
+            window.addEventListener('resize', () => chart.applyOptions({ width: c.clientWidth }));
         }
 
         function updateAllCandles(trade) {
-            const price = parseFloat(trade.px);
-            const tradeSec = Math.floor(trade.time / 1000);
+            const price = parseFloat(trade.px), tradeSec = Math.floor(trade.time / 1000);
             intervals.forEach(interval => {
-                const sec = intervalSeconds[interval];
-                const candleTime = Math.floor(tradeSec / sec) * sec;
+                const sec = intervalSeconds[interval], candleTime = Math.floor(tradeSec / sec) * sec;
                 if (!candleData[interval][candleTime]) {
                     candleData[interval][candleTime] = { time: candleTime, open: price, high: price, low: price, close: price };
                 } else {
-                    const c = candleData[interval][candleTime];
-                    c.high = Math.max(c.high, price);
-                    c.low = Math.min(c.low, price);
-                    c.close = price;
+                    const cd = candleData[interval][candleTime];
+                    cd.high = Math.max(cd.high, price); cd.low = Math.min(cd.low, price); cd.close = price;
                 }
             });
             updateChart();
@@ -436,34 +345,26 @@
         function updateChart() {
             const data = Object.values(candleData[currentInterval]).sort((a, b) => a.time - b.time);
             candleSeries.setData(data);
-            document.getElementById('chartInfo').textContent = `${currentInterval} (${data.length})`;
+            document.getElementById('chartInfo').textContent = `${currentInterval}(${data.length})`;
         }
 
         function changeInterval(interval) {
             currentInterval = interval;
             document.querySelectorAll('.interval-buttons button').forEach(b => b.classList.remove('active'));
             event.target.classList.add('active');
-            updateChart();
-            chart.timeScale().fitContent();
+            updateChart(); chart.timeScale().fitContent();
         }
 
-        // ===== WebSocket =====
         function connect() {
             document.getElementById('statusDot').classList.remove('connected');
             document.getElementById('statusText').textContent = 'Connecting...';
-            
             ws = new WebSocket('wss://api.hyperliquid.xyz/ws');
             ws.onopen = () => {
                 document.getElementById('statusDot').classList.add('connected');
                 document.getElementById('statusText').textContent = 'Connected';
                 ws.send(JSON.stringify({ method: 'subscribe', subscription: { type: 'trades', coin: COIN } }));
             };
-            ws.onmessage = (e) => {
-                try {
-                    const d = JSON.parse(e.data);
-                    if (d.channel === 'trades' && d.data) d.data.forEach(addNewTrade);
-                } catch (err) {}
-            };
+            ws.onmessage = (e) => { try { const d = JSON.parse(e.data); if (d.channel === 'trades' && d.data) d.data.forEach(addNewTrade); } catch {} };
             ws.onclose = () => {
                 document.getElementById('statusDot').classList.remove('connected');
                 document.getElementById('statusText').textContent = 'Reconnecting...';
@@ -471,32 +372,19 @@
             };
         }
 
-        // ===== Scroll =====
         function setupScroll() {
-            const list = document.getElementById('tradesList');
-            const scrollBtn = document.getElementById('scrollTop');
-            
+            const list = document.getElementById('tradesList'), btn = document.getElementById('scrollTop');
             list.addEventListener('scroll', () => {
-                scrollBtn.style.display = list.scrollTop > 200 ? 'block' : 'none';
-                if (list.scrollTop + list.clientHeight >= list.scrollHeight - 100) {
-                    loadMoreTrades();
-                }
+                btn.style.display = list.scrollTop > 150 ? 'block' : 'none';
+                if (list.scrollTop + list.clientHeight >= list.scrollHeight - 80) loadMoreTrades();
             });
         }
 
-        // ===== Init =====
         async function init() {
-            await openDB();
-            await loadCandles();
-            initChart();
-            updateChart();
-            setupScroll();
-            await loadMoreTrades();
-            await updateStats();
-            connect();
+            await openDB(); await loadCandles(); initChart(); updateChart(); setupScroll();
+            await loadMoreTrades(); await updateStats(); connect();
             setInterval(() => { saveCandles(); updateStats(); }, 10000);
         }
-        
         init();
     </script>
 </body>
